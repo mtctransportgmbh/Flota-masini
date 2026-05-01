@@ -121,8 +121,8 @@ button{font-family:inherit;}
 .btn-add-log:active{background:var(--accent);color:#0f0f0f;}
 .log-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .log-table{min-width:760px;}
-.log-hdr{display:grid;grid-template-columns:120px 1fr 70px 145px 145px 70px 130px 34px;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);}
-.log-row{display:grid;grid-template-columns:120px 1fr 70px 145px 145px 70px 130px 34px;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;align-items:center;}
+.log-hdr{display:grid;grid-template-columns:120px 1fr 70px 145px 145px 70px 165px 34px;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);}
+.log-row{display:grid;grid-template-columns:120px 1fr 70px 145px 145px 70px 165px 34px;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;align-items:center;}
 .log-nr{font-family:var(--mono);font-size:12px;color:var(--text2);}
 .log-time{font-family:var(--mono);font-size:12px;color:var(--text2);}
 .log-badge{font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;font-family:var(--mono);display:inline-block;}
@@ -339,7 +339,7 @@ body.user-mode .log-mobile-card {
     <div class="log-wrap">
       <div class="log-table">
         <div class="log-hdr">
-          <div>Nr. mașină</div><div>Șofer</div><div>Tip</div><div>Preluat</div><div>Restituit</div><div>Status</div><div>Modificat de</div><div></div>
+          <div>Nr. mașină</div><div>Șofer</div><div>Tip</div><div>Preluat</div><div>Restituit</div><div>Status</div><div>Adăugat de</div><div></div>
         </div>
         <div id="log-section"></div>
       </div>
@@ -1133,7 +1133,9 @@ function confirmDriver(){
       preluat: dt,
       restituit: null,
       preluatBy: userName,
-      preluatByUsername: userUsername
+      preluatByUsername: userUsername,
+      addedBy: userName,
+      addedAt: new Date().toISOString()
     });
   }
 
@@ -1161,7 +1163,8 @@ function renderLog(){
   }
   sec.innerHTML=filtered.map(l=>{
     const activ=!l.restituit;
-    const modBy = l.preluatBy || l.restituitBy || '—';
+    const modBy = l.addedBy || l.preluatBy || l.restituitBy || '—';
+    const modAt = l.addedAt ? new Date(l.addedAt) : null;
     return `<div class="log-row">
       <div class="log-nr">${l.nr}</div>
       <div>${l.sofer}</div>
@@ -1169,13 +1172,17 @@ function renderLog(){
       <div class="log-time">${fmtDt(l.preluat)}</div>
       <div class="log-time">${l.restituit?fmtDt(l.restituit):'—'}</div>
       <div><span class="log-badge ${activ?'badge-activ':'badge-inchis'}">${activ?'ACTIV':'ÎNCHIS'}</span></div>
-      <div style="font-size:12px;color:var(--text2)" title="${modBy}">${modBy}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.4">
+        <div style="font-weight:500;color:var(--text)">Adăugat de ${modBy}</div>
+        ${modAt?`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:2px">${fmtDt(modAt)}</div>`:''}
+      </div>
       <div><button class="log-edit-btn" onclick="openEditLog(${l.id})">✎</button></div>
     </div>`;
   }).join('');
   mob.innerHTML=filtered.map(l=>{
     const activ=!l.restituit;
-    const modBy = l.preluatBy || l.restituitBy || '—';
+    const modBy = l.addedBy || l.preluatBy || l.restituitBy || '—';
+    const modAt = l.addedAt ? new Date(l.addedAt) : null;
     const onClick = isAdminUser ? `onclick="openEditLog(${l.id})"` : '';
     return `<div class="log-mobile-card" ${onClick}>
       <div class="log-mobile-top">
@@ -1185,7 +1192,9 @@ function renderLog(){
       <div class="log-mobile-row"><span>Mașină</span><span>${l.nr} · ${l.tip||'-'}</span></div>
       <div class="log-mobile-row"><span>Preluat</span><span>${fmtDt(l.preluat)}</span></div>
       <div class="log-mobile-row"><span>Restituit</span><span>${l.restituit?fmtDt(l.restituit):'—'}</span></div>
-      <div class="log-mobile-row"><span>Modificat de</span><span>${modBy}</span></div>
+      <div class="log-mobile-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <span>Adăugat de</span><span style="color:var(--text)">${modBy}${modAt?` · ${fmtDt(modAt)}`:''}</span>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1253,7 +1262,9 @@ function saveAddLog(){
     preluatBy: userName,
     preluatByUsername: userUsername,
     restituitBy: r ? userName : null,
-    restituitByUsername: r ? userUsername : null
+    restituitByUsername: r ? userUsername : null,
+    addedBy: userName,
+    addedAt: new Date().toISOString()
   });
   closeModalAddLog();
   saveToCloud();
@@ -1360,7 +1371,9 @@ function addMasina(){
     log.push({
       id:logIdCtr++,nr,tip,sofer,
       preluat:new Date(),restituit:null,
-      preluatBy: userName, preluatByUsername: userUsername
+      preluatBy: userName, preluatByUsername: userUsername,
+      addedBy: userName,
+      addedAt: new Date().toISOString()
     });
   }
   document.getElementById('new-nr').value='';
