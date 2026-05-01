@@ -401,6 +401,16 @@ body.user-mode .log-mobile-card {
       </div>
     </div>
 
+    <div class="settings-section" style="border-color:rgba(255,90,90,.3)">
+      <div class="settings-title" style="color:var(--danger)">⚠ Zonă periculoasă</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+        <strong style="color:var(--text)">Șterge tot logul</strong> — elimină definitiv TOATE intrările din tab-ul Log (toate cele <span id="log-count-display">0</span> intrări).<br>
+        Mașinile și șoferii rămân nemodificați.<br>
+        <strong style="color:var(--danger)">Această acțiune NU poate fi anulată.</strong>
+      </div>
+      <button class="btn btn-danger" onclick="adminDeleteAllLogs()" style="flex:none;width:auto">Șterge tot logul</button>
+    </div>
+
     <div class="settings-section">
       <div class="settings-title">Despre</div>
       <div style="font-size:13px;color:var(--text2);line-height:1.7">
@@ -413,7 +423,7 @@ body.user-mode .log-mobile-card {
   <!-- ── TAB STRICATE ─────────────────────────────────────── -->
   <div id="tab-stricate" style="display:none">
     <div style="background:rgba(255,90,90,.06);border:1px solid rgba(255,90,90,.22);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6">
-      <strong style="color:var(--danger)">🔧 Mașini stricate</strong> — lista mașinilor marcate ca STRICATĂ. Pentru a marca o mașină stricată, schimbă șoferul în "🔧 STRICATĂ" din pagina Mașini.
+      <strong style="color:var(--danger)">🔧 Mașini stricate</strong> — lista mașinilor marcate ca STRICATĂ. Schimbă din dropdown când mașina e reparată.
     </div>
     <div id="stricate-section"></div>
   </div>
@@ -889,7 +899,8 @@ function updateAdminUI(){
   const adminBtn = document.getElementById('tab-btn-admin');
   const stricateBtn = document.getElementById('tab-btn-stricate');
   if(adminBtn) adminBtn.style.display = isAdmin ? '' : 'none';
-  if(stricateBtn) stricateBtn.style.display = isAdmin ? '' : 'none';
+  // Tab Stricate vizibil pentru toți (useri îl văd doar ca listă, fără să poată edita)
+  if(stricateBtn) stricateBtn.style.display = '';
 
   // Ascunde tab-ul Setări pentru non-admini
   const setariBtns = document.querySelectorAll('.tab-btn');
@@ -898,9 +909,6 @@ function updateAdminUI(){
       b.style.display = isAdmin ? '' : 'none';
     }
   });
-
-  // Ascunde tab-ul Șoferi (read-only ar fi confuz) — opțional, lasă-l vizibil ca lista
-  // (păstrăm vizibil dar ascundem operațiile de adăugare/ștergere șoferi)
 
   // Marchează body pentru CSS-ul restrictiv
   document.body.classList.toggle('user-mode', !isAdmin);
@@ -1335,6 +1343,9 @@ function renderSoferi(){
 function renderSetari(){
   document.getElementById('new-sofer-sel').innerHTML=buildOpts('DEPOZIT');
   const list=document.getElementById('soferi-list-manage');
+  // Actualizează contorul de log-uri
+  const cntEl = document.getElementById('log-count-display');
+  if(cntEl) cntEl.textContent = log.length;
   if(soferi.length===0){
     list.innerHTML='<div style="font-size:12px;color:var(--text3)">Niciun șofer adăugat.</div>';
     return;
@@ -1342,6 +1353,29 @@ function renderSetari(){
   list.innerHTML=
     `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">`+
     soferi.slice().sort().map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:13px"><span>${s}</span><button onclick="removeSofer(${JSON.stringify(s)})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1">×</button></div>`).join('')+'</div>';
+}
+
+// Ștergere completă log — doar pentru admin, cu dublă confirmare
+function adminDeleteAllLogs(){
+  if(!isAdminUser){ toast('Doar adminul poate face asta'); return; }
+  const count = log.length;
+  if(count === 0){ toast('Logul e deja gol'); return; }
+
+  // Prima confirmare
+  if(!confirm(`Ești sigur că vrei să ștergi TOATE cele ${count} intrări din log?\n\nMașinile și șoferii rămân nemodificați.\n\nAceastă acțiune NU poate fi anulată.`)) return;
+
+  // A doua confirmare — trebuie să tasteze SterGE pentru confirmare
+  const typed = prompt(`Pentru a confirma definitiv, scrie cuvântul "STERGE" (cu majuscule):`);
+  if(typed !== 'STERGE'){
+    toast('Anulat — nu s-a tastat corect');
+    return;
+  }
+
+  log = [];
+  logIdCtr = 1;
+  saveToCloud();
+  renderAll();
+  toast(`Șterse ${count} intrări din log`);
 }
 function addSofer(){
   const inp=document.getElementById('new-sofer-input');
@@ -1613,6 +1647,7 @@ window.doLogout=doLogout;
 window.showUserMenu=showUserMenu;
 window.adminSaveAdmins=adminSaveAdmins;
 window.adminDeleteUser=adminDeleteUser;
+window.adminDeleteAllLogs=adminDeleteAllLogs;
 window.quickLogin=quickLogin;
 window.showAdminLogin=showAdminLogin;
 window.hideAdminLogin=hideAdminLogin;
