@@ -1164,7 +1164,8 @@ function renderLog(){
   sec.innerHTML=filtered.map(l=>{
     const activ=!l.restituit;
     const modBy = l.addedBy || l.preluatBy || l.restituitBy || '—';
-    const modAt = l.addedAt ? new Date(l.addedAt) : null;
+    // Fallback: dacă addedAt nu e setat (log vechi), folosim preluat ca aproximare
+    const modAt = l.addedAt ? new Date(l.addedAt) : (l.preluat || null);
     return `<div class="log-row">
       <div class="log-nr">${l.nr}</div>
       <div>${l.sofer}</div>
@@ -1182,7 +1183,7 @@ function renderLog(){
   mob.innerHTML=filtered.map(l=>{
     const activ=!l.restituit;
     const modBy = l.addedBy || l.preluatBy || l.restituitBy || '—';
-    const modAt = l.addedAt ? new Date(l.addedAt) : null;
+    const modAt = l.addedAt ? new Date(l.addedAt) : (l.preluat || null);
     const onClick = isAdminUser ? `onclick="openEditLog(${l.id})"` : '';
     return `<div class="log-mobile-card" ${onClick}>
       <div class="log-mobile-top">
