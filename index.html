@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flotă">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Gestiune Flotă Auto</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f0f0f;--surface:#181818;--surface2:#222;--border:#2a2a2a;--border2:#363636;
+  --text:#e8e8e8;--text2:#888;--text3:#555;--accent:#c8f542;--accent2:#8fbf1f;
+  --crafter:#4a9eff;--t6:#ff9f4a;--elektro:#4affa0;--danger:#ff5a5a;
+  --polling:#4a9eff;--avp:#ff4a8d;--paketshop:#b04aff;--eiselfing:#a78bfa;--out:#ff9f4a;
+  --font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace;--radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overscroll-behavior-y:contain;}
+button{font-family:inherit;}
+
+/* ── LOGIN ─────────────────────────────────────────── */
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:32px 28px;width:100%;max-width:380px;}
+.login-logo{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.08em;margin-bottom:6px;}
+.login-title{font-size:20px;font-weight:500;margin-bottom:24px;}
+.login-field{margin-bottom:14px;}
+.login-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;}
+.login-input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:15px;padding:12px 14px;outline:none;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:13px;font-size:14px;font-weight:500;border-radius:var(--radius);cursor:pointer;border:none;background:var(--accent);color:#0f0f0f;margin-top:8px;}
+.login-btn:active{opacity:.85;}
+.login-btn:disabled{opacity:.5;cursor:not-allowed;}
+.login-toggle{text-align:center;margin-top:14px;font-size:13px;color:var(--text2);}
+.login-toggle a{color:var(--accent);text-decoration:none;cursor:pointer;}
+.login-error{background:rgba(255,90,90,.1);border:1px solid rgba(255,90,90,.3);color:var(--danger);padding:10px 12px;border-radius:var(--radius);font-size:13px;margin-bottom:14px;}
+.login-hint{font-size:12px;color:var(--text3);margin-top:18px;text-align:center;line-height:1.5;}
+
+/* ── HEADER ────────────────────────────────────────── */
+.header{border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:100;gap:12px;}
+.header-left{display:flex;align-items:center;gap:12px;min-width:0;}
+.logo{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em;}
+.header-title{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.header-right{display:flex;align-items:center;gap:14px;}
+.header-stats{display:flex;gap:18px;}
+.hstat{text-align:right;}
+.hstat-val{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--accent);line-height:1;}
+.hstat-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+.user-chip{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:20px;cursor:pointer;font-size:12px;}
+.user-chip:active{background:var(--surface2);}
+.user-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+.sync-indicator{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px rgba(200,245,66,.6);}
+.sync-indicator.offline{background:var(--danger);box-shadow:0 0 6px rgba(255,90,90,.6);}
+
+/* ── TABS ──────────────────────────────────────────── */
+.tabs-bar{display:flex;border-bottom:1px solid var(--border);padding:0 8px;background:var(--bg);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.tabs-bar::-webkit-scrollbar{display:none;}
+.tab-btn{padding:14px 14px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* ── TOOLBAR ───────────────────────────────────────── */
+.toolbar{padding:12px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);}
+.search-wrap{position:relative;flex:1;min-width:140px;}
+.search-wrap input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px 10px 32px;outline:none;}
+.search-wrap input:focus{border-color:var(--accent);}
+.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none;}
+.filter-btn{padding:9px 14px;font-size:12px;font-weight:500;border-radius:var(--radius);cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--text2);transition:all .15s;white-space:nowrap;min-height:38px;}
+.filter-btn.active{background:var(--accent);color:#0f0f0f;border-color:var(--accent);}
+
+/* ── MAIN ──────────────────────────────────────────── */
+.main{padding:16px;padding-bottom:80px;}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;}
+.car-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden;}
+.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.tip-badge{font-family:var(--mono);font-size:10px;font-weight:500;padding:4px 8px;border-radius:3px;letter-spacing:.06em;}
+.tip-CRAFTER{background:rgba(74,158,255,.12);color:var(--crafter);}
+.tip-T6{background:rgba(255,159,74,.12);color:var(--t6);}
+.tip-ELEKTRO{background:rgba(74,255,160,.12);color:var(--elektro);}
+.tip-unknown{background:rgba(85,85,85,.2);color:#555;}
+.card-actions{display:flex;gap:6px;}
+.icon-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px 6px;border-radius:4px;}
+.icon-btn:active{color:var(--text);background:var(--surface2);}
+.nr-plate{font-family:var(--mono);font-size:16px;font-weight:500;margin-bottom:12px;letter-spacing:.04em;}
+.driver-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.driver-select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 30px 10px 12px;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+.driver-select:focus{border-color:var(--accent);}
+.card-accent{position:absolute;top:0;left:0;width:3px;height:100%;}
+
+/* ── DISPONIBIL ────────────────────────────────────── */
+.disp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;}
+.disp-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.disp-header{padding:14px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:12px;}
+.disp-count{font-family:var(--mono);font-size:30px;font-weight:500;}
+.cnt-CRAFTER{color:var(--crafter);}.cnt-T6{color:var(--t6);}.cnt-ELEKTRO{color:var(--elektro);}
+.disp-tip-label{font-size:13px;font-weight:500;color:var(--text2);}
+.disp-items{padding:6px 0;}
+.disp-item{padding:10px 18px;font-family:var(--mono);font-size:14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.disp-item:last-child{border-bottom:none;}
+.disp-dot{width:6px;height:6px;border-radius:50%;background:#c8f542;flex-shrink:0;}
+.disp-empty{padding:18px;font-size:13px;color:var(--text3);font-style:italic;}
+
+/* ── LOG ───────────────────────────────────────────── */
+.log-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
+.log-toolbar input{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:14px;padding:9px 12px;outline:none;flex:1;min-width:160px;}
+.log-toolbar input:focus{border-color:var(--accent);}
+.btn-add-log{padding:10px 16px;font-size:13px;font-weight:500;border-radius:var(--radius);cursor:pointer;border:1px solid var(--accent);background:transparent;color:var(--accent);min-height:40px;}
+.btn-add-log:active{background:var(--accent);color:#0f0f0f;}
+.log-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.log-table{min-width:760px;}
+.log-hdr{display:grid;grid-template-columns:120px 1fr 70px 145px 145px 70px 130px 34px;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);}
+.log-row{display:grid;grid-template-columns:120px 1fr 70px 145px 145px 70px 130px 34px;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;align-items:center;}
+.log-nr{font-family:var(--mono);font-size:12px;color:var(--text2);}
+.log-time{font-family:var(--mono);font-size:12px;color:var(--text2);}
+.log-badge{font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;font-family:var(--mono);display:inline-block;}
+.badge-activ{background:rgba(200,245,66,.12);color:var(--accent);}
+.badge-inchis{background:rgba(255,255,255,.05);color:var(--text3);}
+.log-edit-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:6px;border-radius:4px;}
+.log-edit-btn:active{color:var(--text);background:var(--surface2);}
+.log-mobile{display:none;}
+.log-mobile-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;}
+.log-mobile-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.log-mobile-driver{font-weight:500;font-size:14px;}
+.log-mobile-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);font-family:var(--mono);margin-bottom:3px;}
+.log-mobile-row span:first-child{color:var(--text3);}
+
+/* ── SOFERI ────────────────────────────────────────── */
+.soferi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+.sofer-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:14px;}
+.sofer-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;}
+
+/* ── EMPTY ─────────────────────────────────────────── */
+.empty-state{padding:50px 20px;text-align:center;color:var(--text3);font-size:14px;}
+
+/* ── MODAL ─────────────────────────────────────────── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:200;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:24px;width:460px;max-width:100%;max-height:90vh;overflow-y:auto;}
+.modal-title{font-size:17px;font-weight:500;margin-bottom:6px;}
+.modal-sub{font-size:12px;color:var(--text3);margin-bottom:18px;font-family:var(--mono);}
+.modal-field{margin-bottom:14px;}
+.modal-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;}
+.modal input,.modal select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:15px;padding:11px 12px;outline:none;}
+.modal input[type=datetime-local]{font-family:var(--mono);font-size:14px;}
+.modal input:focus,.modal select:focus{border-color:var(--accent);}
+.modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+.btn{padding:11px 18px;font-size:13px;font-weight:500;border-radius:var(--radius);cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--text);min-height:42px;flex:1;min-width:100px;}
+.btn-primary{background:var(--accent);color:#0f0f0f;border-color:var(--accent);}
+.btn-danger{background:transparent;color:var(--danger);border-color:rgba(255,90,90,.4);}
+.btn:active{opacity:.85;}
+
+/* ── SETARI ────────────────────────────────────────── */
+.settings-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+.settings-title{font-size:14px;font-weight:500;margin-bottom:14px;color:var(--text);}
+.settings-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.settings-row input,.settings-row select{flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;outline:none;}
+
+/* ── AMENDA ────────────────────────────────────────── */
+.amenda-form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px;}
+.amenda-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.amenda-row > *{flex:1;min-width:140px;}
+.amenda-row input{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px;outline:none;}
+.amenda-row input:focus{border-color:var(--accent);}
+
+/* ── LOADING ───────────────────────────────────────── */
+.loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:300;flex-direction:column;gap:12px;}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── TOAST ─────────────────────────────────────────── */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 18px;font-size:13px;z-index:400;box-shadow:0 4px 12px rgba(0,0,0,.4);max-width:90vw;opacity:0;transition:opacity .2s;pointer-events:none;}
+.toast.show{opacity:1;}
+
+/* ── RESPONSIVE TELEFON ────────────────────────────── */
+@media (max-width:640px){
+  .header{padding:12px 14px;flex-wrap:wrap;}
+  .header-title{font-size:13px;}
+  .header-stats{gap:12px;}
+  .hstat-val{font-size:15px;}
+  .hstat-label{font-size:9px;}
+  .header-right{gap:10px;}
+  .user-chip span{display:none;}
+  .user-chip{padding:4px;}
+  .tab-btn{padding:13px 12px;font-size:12px;}
+  .toolbar{padding:10px 14px;}
+  .main{padding:14px;}
+  .cards-grid{grid-template-columns:1fr;gap:8px;}
+  .log-table{display:none;}
+  .log-mobile{display:block;}
+  .modal{padding:20px;}
+  .filter-btn{padding:8px 12px;}
+}
+@media (min-width:641px){
+  .log-mobile{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ── LOADING SCREEN ─────────────────────────────────────────── -->
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--text2);font-family:var(--mono)">se conectează...</div>
+</div>
+
+<!-- ── LOGIN SCREEN ───────────────────────────────────────────── -->
+<div id="login-screen" class="login-screen" style="display:none">
+  <div class="login-box">
+    <div class="login-logo">FLOTĂ // AUTH</div>
+    <div class="login-title" id="login-title">Conectare</div>
+    <div id="login-error" class="login-error" style="display:none"></div>
+    <div class="login-field">
+      <div class="login-label">Username sau email</div>
+      <input id="login-email" type="text" class="login-input" autocomplete="username" placeholder="ex: paul">
+    </div>
+    <div class="login-field">
+      <div class="login-label">Parolă</div>
+      <input id="login-password" type="password" class="login-input" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <button id="login-btn" class="login-btn" onclick="doAuth()">Intră</button>
+    <div class="login-hint">Conturile sunt create de administrator.<br>Dacă ai uitat parola, contactează admin.</div>
+  </div>
+</div>
+
+<!-- ── APP ────────────────────────────────────────────────────── -->
+<div id="app" style="display:none">
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">FLOTĂ //</div>
+    <div class="header-title">Gestiune Auto</div>
+  </div>
+  <div class="header-right">
+    <div class="header-stats">
+      <div class="hstat"><div class="hstat-val" id="stat-total">0</div><div class="hstat-label">Total</div></div>
+      <div class="hstat"><div class="hstat-val" id="stat-disp">0</div><div class="hstat-label">Depozit</div></div>
+      <div class="hstat"><div class="hstat-val" id="stat-out">0</div><div class="hstat-label">Teren</div></div>
+    </div>
+    <div class="user-chip" onclick="showUserMenu()">
+      <div class="sync-indicator" id="sync-dot"></div>
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span id="user-name">—</span>
+    </div>
+  </div>
+</div>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="showTab('masini')">Mașini</button>
+  <button class="tab-btn" onclick="showTab('disponibil')">Disponibil</button>
+  <button class="tab-btn" onclick="showTab('log')">Log</button>
+  <button class="tab-btn" onclick="showTab('amenda')">Verificare amendă</button>
+  <button class="tab-btn" onclick="showTab('soferi')">Șoferi</button>
+  <button class="tab-btn" onclick="showTab('setari')">Setări</button>
+  <button class="tab-btn" id="tab-btn-stricate" onclick="showTab('stricate')" style="display:none">🔧 Stricate</button>
+  <button class="tab-btn" id="tab-btn-admin" onclick="showTab('admin')" style="display:none">⚙ Admin</button>
+</div>
+
+<div id="toolbar-masini" class="toolbar">
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input id="search" placeholder="caută nr. sau șofer..." oninput="renderCards()">
+  </div>
+  <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Toate</button>
+  <button class="filter-btn" data-filter="CRAFTER" onclick="setFilter('CRAFTER')">Crafter</button>
+  <button class="filter-btn" data-filter="T6" onclick="setFilter('T6')">T6</button>
+  <button class="filter-btn" data-filter="ELEKTRO" onclick="setFilter('ELEKTRO')">Elektro</button>
+  <button class="filter-btn" data-filter="DEPOZIT" onclick="setFilter('DEPOZIT')" style="margin-left:6px">Depozit</button>
+  <button class="filter-btn" data-filter="OUT" onclick="setFilter('OUT')">Teren</button>
+  <button class="filter-btn" data-filter="PAKETSHOP" onclick="setFilter('PAKETSHOP')">Paketshop</button>
+</div>
+
+<div class="main">
+
+  <!-- ── TAB MAȘINI ────────────────────────────────────────── -->
+  <div id="tab-masini">
+    <div id="cards-section" class="cards-grid"></div>
+  </div>
+
+  <!-- ── TAB DISPONIBIL ───────────────────────────────────── -->
+  <div id="tab-disponibil" style="display:none">
+    <div id="disp-section" class="disp-grid"></div>
+  </div>
+
+  <!-- ── TAB LOG ──────────────────────────────────────────── -->
+  <div id="tab-log" style="display:none">
+    <div class="log-toolbar">
+      <input id="log-search" placeholder="caută în log..." oninput="renderLog()">
+      <button class="btn-add-log" onclick="openAddLog()">+ Adaugă schimbare</button>
+    </div>
+    <div class="log-wrap">
+      <div class="log-table">
+        <div class="log-hdr">
+          <div>Nr. mașină</div><div>Șofer</div><div>Tip</div><div>Preluat</div><div>Restituit</div><div>Status</div><div>Modificat de</div><div></div>
+        </div>
+        <div id="log-section"></div>
+      </div>
+      <div class="log-mobile" id="log-mobile-section"></div>
+    </div>
+  </div>
+
+  <!-- ── TAB AMENDĂ ───────────────────────────────────────── -->
+  <div id="tab-amenda" style="display:none">
+    <div class="amenda-form">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px">Cine conducea o anumită mașină la o anumită dată</div>
+      <div class="amenda-row">
+        <input id="amenda-nr" placeholder="nr. mașină (ex: B-123-ABC)">
+        <input id="amenda-dt" type="datetime-local">
+      </div>
+      <button class="btn btn-primary" onclick="cautaAmenda()" style="width:auto;flex:none">Caută</button>
+    </div>
+    <div id="amenda-rezultat"></div>
+  </div>
+
+  <!-- ── TAB ȘOFERI ───────────────────────────────────────── -->
+  <div id="tab-soferi" style="display:none">
+    <div id="soferi-section" class="soferi-grid"></div>
+  </div>
+
+  <!-- ── TAB SETĂRI ───────────────────────────────────────── -->
+  <div id="tab-setari" style="display:none">
+    <div class="settings-section">
+      <div class="settings-title">Adaugă mașină nouă</div>
+      <div class="settings-row">
+        <select id="new-tip">
+          <option value="CRAFTER">CRAFTER</option>
+          <option value="T6">T6</option>
+          <option value="ELEKTRO">ELEKTRO</option>
+        </select>
+        <input id="new-nr" placeholder="nr. înmatriculare">
+        <select id="new-sofer-sel"></select>
+      </div>
+      <button class="btn btn-primary" onclick="addMasina()" style="flex:none;width:auto">Adaugă mașină</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Adaugă șofer</div>
+      <div class="settings-row">
+        <input id="new-sofer-input" placeholder="nume șofer">
+        <button class="btn btn-primary" onclick="addSofer()" style="flex:none;width:auto">Adaugă</button>
+      </div>
+      <div id="soferi-list-manage" style="margin-top:14px"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Date</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="exportData()" style="flex:none;width:auto">Export JSON</button>
+        <button class="btn btn-danger" onclick="doLogout()" style="flex:none;width:auto">Ieși din cont</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:14px;line-height:1.6">
+        Datele se sincronizează automat în timp real cu colegii. Modificările tale apar pe ecranul lor în 1-2 secunde.
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Despre</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7">
+        Conectat ca: <strong style="color:var(--text)" id="info-email">—</strong><br>
+        Status sincronizare: <strong style="color:var(--accent)" id="info-sync">activ</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB STRICATE ─────────────────────────────────────── -->
+  <div id="tab-stricate" style="display:none">
+    <div style="background:rgba(255,90,90,.06);border:1px solid rgba(255,90,90,.22);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6">
+      <strong style="color:var(--danger)">🔧 Mașini stricate</strong> — lista mașinilor marcate ca STRICATĂ. Pentru a marca o mașină stricată, schimbă șoferul în "🔧 STRICATĂ" din pagina Mașini.
+    </div>
+    <div id="stricate-section"></div>
+  </div>
+
+  <!-- ── TAB ADMIN ────────────────────────────────────────── -->
+  <div id="tab-admin" style="display:none">
+    <div class="settings-section">
+      <div class="settings-title">Creează cont nou pentru coleg</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6">
+        Creezi tu conturile, ei doar se loghează cu username + parolă pe care le stabilești tu.<br>
+        <strong style="color:var(--t6)">Atenție:</strong> după ce creezi un cont, vei fi delogat automat. Te re-loghezi tu apoi.
+      </div>
+      <div class="settings-row">
+        <input id="admin-new-username" placeholder="username (ex: paul)" autocomplete="off">
+        <input id="admin-new-password" type="text" placeholder="parolă (min. 6 caractere)" autocomplete="off">
+      </div>
+      <div class="settings-row">
+        <input id="admin-new-displayname" placeholder="nume afișat (ex: Paul Popescu)" autocomplete="off">
+        <button class="btn btn-primary" onclick="adminCreateUser()" style="flex:none;width:auto;min-width:140px">Creează cont</button>
+      </div>
+      <div id="admin-create-result" style="margin-top:10px"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Conturi existente</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6">
+        Lista persoanelor care s-au logat. Pentru a șterge un cont sau a reseta parola, folosește Firebase Console → Authentication.
+      </div>
+      <div id="admin-users-list"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Configurare admini</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px">
+        Doar utilizatorii din lista de mai jos văd tab-ul Admin. Username-urile separate prin virgulă.
+      </div>
+      <input id="admin-list-input" placeholder="username1,username2,paul" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 12px;outline:none">
+      <button class="btn btn-primary" onclick="adminSaveAdmins()" style="margin-top:10px;flex:none;width:auto">Salvează lista admin</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── MODAL: SCHIMBĂ ȘOFER ──────────────────────────────────── -->
+<div class="modal-overlay" id="modal-driver">
+  <div class="modal">
+    <div class="modal-title" id="md-title">Schimbă șofer</div>
+    <div class="modal-sub" id="md-sub"></div>
+    <div class="modal-field">
+      <div class="modal-label">Șofer nou</div>
+      <select id="md-driver"></select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Data și ora schimbării</div>
+      <input type="datetime-local" id="md-dt">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDriver()">Anulează</button>
+      <button class="btn btn-primary" onclick="confirmDriver()">Confirmă</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: EDIT LOG ───────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-log">
+  <div class="modal">
+    <div class="modal-title">Editează log</div>
+    <div class="modal-sub" id="ml-sub"></div>
+    <div class="modal-field">
+      <div class="modal-label">Mașină</div>
+      <input id="ml-nr">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Șofer</div>
+      <select id="ml-sofer"></select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Preluat</div>
+      <input type="datetime-local" id="ml-preluat">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Restituit (gol = încă activ)</div>
+      <input type="datetime-local" id="ml-restituit">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="deleteLog()">Șterge</button>
+      <button class="btn" onclick="closeModalLog()">Anulează</button>
+      <button class="btn btn-primary" onclick="saveLog()">Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: ADAUGĂ LOG ─────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-addlog">
+  <div class="modal">
+    <div class="modal-title">Adaugă schimbare manuală</div>
+    <div class="modal-sub">Pentru istoric retroactiv</div>
+    <div class="modal-field">
+      <div class="modal-label">Mașină</div>
+      <select id="al-nr"></select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Șofer</div>
+      <select id="al-sofer"></select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Preluat</div>
+      <input type="datetime-local" id="al-preluat">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Restituit (gol = încă activ)</div>
+      <input type="datetime-local" id="al-restituit">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalAddLog()">Anulează</button>
+      <button class="btn btn-primary" onclick="saveAddLog()">Adaugă</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: EDIT MAȘINĂ ────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <div class="modal-title" id="me-title">Editează mașină</div>
+    <div class="modal-field">
+      <div class="modal-label">Tip</div>
+      <select id="me-tip">
+        <option value="CRAFTER">CRAFTER</option>
+        <option value="T6">T6</option>
+        <option value="ELEKTRO">ELEKTRO</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Număr</div>
+      <input id="me-nr">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="deleteMasina()">Șterge</button>
+      <button class="btn" onclick="closeModalEdit()">Anulează</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Salvează</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<!-- ── FIREBASE ──────────────────────────────────────────────── -->
+<!-- ──────────────────────────────────────────────────────────── -->
+<!-- Încarcă configurația din fișierul config.js (separat) -->
+<script src="config.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Configurația vine din config.js (încărcat mai sus)
+const firebaseConfig = window.FIREBASE_CONFIG;
+const TEAM_ID = window.TEAM_ID || "echipa1";
+
+if (!firebaseConfig || !firebaseConfig.apiKey) {
+  document.getElementById('loading').innerHTML = `
+    <div style="max-width:480px;padding:30px;text-align:center">
+      <div style="font-size:32px;margin-bottom:14px">⚙️</div>
+      <div style="font-size:17px;font-weight:500;margin-bottom:10px">Configurare lipsă</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6">
+        Fișierul <strong style="color:var(--accent);font-family:var(--mono)">config.js</strong>
+        nu este încărcat sau este gol.<br>
+        Verifică că ai urcat <strong style="color:var(--accent);font-family:var(--mono)">config.js</strong> împreună cu <strong style="color:var(--accent);font-family:var(--mono)">index.html</strong> pe Netlify.
+      </div>
+    </div>`;
+} else {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Sync offline (modifici fără net, se urcă când revii online)
+  try { enableIndexedDbPersistence(db); } catch(e) {}
+
+  const docRef = doc(db, "teams", TEAM_ID);
+
+  window.fbAuth = auth;
+  window.fbDocRef = docRef;
+  window.fbHelpers = {
+    signIn: signInWithEmailAndPassword,
+    signUp: createUserWithEmailAndPassword,
+    signOut,
+    onAuth: onAuthStateChanged,
+    updateProfile,
+    setDoc,
+    onSnapshot
+  };
+
+  // Pornește aplicația
+  window.dispatchEvent(new Event('firebase-ready'));
+}
+</script>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<!-- ── LOGICA APP ────────────────────────────────────────────── -->
+<!-- ──────────────────────────────────────────────────────────── -->
+<script>
+// ── STATE ────────────────────────────────────────────────────────────
+let masini=[], soferi=[], log=[];
+let carIdCtr=1, logIdCtr=1;
+let editingCarId=null, editingLogId=null;
+let pendingDriverChange=null;
+let currentFilter='all';
+let currentUser=null;
+let isSaving=false;
+let lastSnapshotData=null;
+let admins=[];           // username-uri cu rol de admin
+let knownUsers=[];       // utilizatori care s-au logat (pt. lista din admin)
+
+const SPECIALS=['DEPOZIT','POLLING','EISELFING','AVP','PAKETSHOP','STRICATA'];
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+function sk(sofer){
+  if(!sofer || sofer==='') return 'NONE';
+  const u=sofer.toString().trim().toUpperCase();
+  if(u==='DEPOZIT') return 'DEPOZIT';
+  if(u==='POLLING') return 'POLLING';
+  if(u==='EISELFING') return 'EISELFING';
+  if(u==='AVP') return 'AVP';
+  if(u==='PAKETSHOP') return 'PAKETSHOP';
+  if(u==='STRICATA') return 'STRICATA';
+  return 'OUT';
+}
+function sc(sofer){
+  const m={DEPOZIT:'#c8f542',POLLING:'#4a9eff',EISELFING:'#a78bfa',AVP:'#ff4a8d',PAKETSHOP:'#b04aff',STRICATA:'#ff5a5a',OUT:'#ff9f4a',NONE:'#444'};
+  return m[sk(sofer)]||'#444';
+}
+const initials=n=>{const p=(n||'').split(' ').filter(Boolean);return p.length>=2?(p[0][0]+p[p.length-1][0]).toUpperCase():(p[0]||'?').slice(0,2).toUpperCase();};
+const avc=n=>{const c=['#c8f542','#4a9eff','#ff9f4a','#4affa0','#ff7ac6','#a78bfa','#fbbf24'];let h=0;for(const ch of n||'')h=(h*31+ch.charCodeAt(0))%c.length;return c[h];};
+function fmtDt(d){if(!d)return'-';const p=n=>String(n).padStart(2,'0');return`${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function fmtDtInput(d){if(!d)return'';const p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+function buildOpts(sel){
+  return `<option value="DEPOZIT"${sel==='DEPOZIT'?' selected':''}>DEPOZIT</option>`+
+    `<option value="POLLING"${sel==='POLLING'?' selected':''}>POLLING</option>`+
+    `<option value="EISELFING"${sel==='EISELFING'?' selected':''}>EISELFING</option>`+
+    `<option value="AVP"${sel==='AVP'?' selected':''}>AVP</option>`+
+    `<option value="PAKETSHOP"${sel==='PAKETSHOP'?' selected':''}>PAKETSHOP</option>`+
+    `<option value="STRICATA"${sel==='STRICATA'?' selected':''}>🔧 STRICATĂ</option>`+
+    `<option value=""${(!sel||sel==='')?' selected':''}>— nealocat —</option>`+
+    `<option disabled>──────────</option>`+
+    soferi.slice().sort().map(s=>`<option value="${s}"${s===sel?' selected':''}>${s}</option>`).join('');
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(window._tt);
+  window._tt=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ── AUTH ─────────────────────────────────────────────────────────────
+const FAKE_DOMAIN = '@flota.local'; // domeniul "fake" pentru username-uri
+
+// Convertește input (poate fi username sau email) în email pentru Firebase
+function toFirebaseEmail(input){
+  const s = (input||'').trim();
+  if(s.includes('@')) return s; // email real
+  return s.toLowerCase() + FAKE_DOMAIN; // username → username@flota.local
+}
+
+// Extrage username (sau email) pentru afișare
+function fromFirebaseEmail(email){
+  if(!email) return '';
+  if(email.endsWith(FAKE_DOMAIN)) return email.slice(0, -FAKE_DOMAIN.length);
+  return email;
+}
+
+async function doAuth(){
+  const input=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-password').value;
+  const errEl=document.getElementById('login-error');
+  errEl.style.display='none';
+  if(!input || !pass){ errEl.textContent='Completează username și parolă'; errEl.style.display=''; return; }
+
+  const btn=document.getElementById('login-btn');
+  btn.disabled=true; btn.textContent='...';
+
+  try{
+    const email = toFirebaseEmail(input);
+    await window.fbHelpers.signIn(window.fbAuth, email, pass);
+  } catch(e){
+    let msg='Username sau parolă greșită';
+    if(e.code==='auth/invalid-credential' || e.code==='auth/wrong-password' || e.code==='auth/user-not-found') msg='Username sau parolă greșită';
+    else if(e.code==='auth/invalid-email') msg='Username invalid (folosește doar litere și cifre)';
+    else if(e.code==='auth/network-request-failed') msg='Fără conexiune la internet';
+    else if(e.code==='auth/too-many-requests') msg='Prea multe încercări. Așteaptă câteva minute.';
+    else msg=e.message||msg;
+    errEl.textContent=msg; errEl.style.display='';
+  }
+  btn.disabled=false;
+  btn.textContent='Intră';
+}
+
+async function doLogout(){
+  if(!confirm('Ieși din cont?'))return;
+  await window.fbHelpers.signOut(window.fbAuth);
+  location.reload();
+}
+
+window.addEventListener('firebase-ready', ()=>{
+  window.fbHelpers.onAuth(window.fbAuth, (user)=>{
+    if(user){
+      const username = fromFirebaseEmail(user.email);
+      currentUser={
+        uid:user.uid,
+        email:user.email,
+        username:username,
+        name:user.displayName||username
+      };
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('user-name').textContent=currentUser.name;
+      document.getElementById('user-avatar').textContent=initials(currentUser.name);
+      document.getElementById('user-avatar').style.background=avc(currentUser.name)+'33';
+      document.getElementById('user-avatar').style.color=avc(currentUser.name);
+      document.getElementById('info-email').textContent=currentUser.username + (user.email.includes(FAKE_DOMAIN)?'':' ('+user.email+')');
+      startSync();
+    } else {
+      document.getElementById('loading').style.display='none';
+      document.getElementById('login-screen').style.display='';
+      document.getElementById('app').style.display='none';
+    }
+  });
+
+  window.addEventListener('online', ()=>{
+    document.getElementById('sync-dot').classList.remove('offline');
+    document.getElementById('info-sync') && (document.getElementById('info-sync').textContent='activ');
+    toast('Conexiune restabilită');
+  });
+  window.addEventListener('offline', ()=>{
+    document.getElementById('sync-dot').classList.add('offline');
+    document.getElementById('info-sync') && (document.getElementById('info-sync').textContent='offline (modificările se urcă la reconectare)');
+    toast('Offline — modificările vor fi salvate când revii online');
+  });
+});
+
+// ── SYNC CU FIREBASE ─────────────────────────────────────────────────
+function startSync(){
+  window.fbHelpers.onSnapshot(window.fbDocRef, (snap)=>{
+    if(snap.exists()){
+      const d=snap.data();
+      // Skip propria modificare (deja în memorie)
+      if(isSaving){ isSaving=false; return; }
+      lastSnapshotData=JSON.stringify(d);
+      hydrateFromCloud(d);
+    } else {
+      // Prima dată — creăm doc gol
+      saveToCloud();
+    }
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='';
+  }, (err)=>{
+    console.error(err);
+    document.getElementById('loading').innerHTML=`<div style="padding:20px;text-align:center;max-width:400px"><div style="color:var(--danger);font-size:14px;margin-bottom:10px">Eroare conexiune</div><div style="font-size:12px;color:var(--text2)">${err.message}</div><div style="margin-top:14px;font-size:12px;color:var(--text3)">Verifică ghidul de instalare — probabil regulile Firestore nu sunt setate.</div></div>`;
+  });
+}
+
+function hydrateFromCloud(d){
+  masini = (d.masini||[]).map(m=>({...m}));
+  soferi = (d.soferi||[]).slice();
+  log = (d.log||[]).map(l=>({
+    ...l,
+    preluat: l.preluat ? new Date(l.preluat) : null,
+    restituit: l.restituit ? new Date(l.restituit) : null
+  }));
+  carIdCtr = d.carIdCtr||1;
+  logIdCtr = d.logIdCtr||1;
+  admins = d.admins || [];
+  knownUsers = d.knownUsers || [];
+
+  // Înregistrează user-ul curent în knownUsers (se face automat la prima logare)
+  if(currentUser && currentUser.username){
+    const existing = knownUsers.find(u=>u.username===currentUser.username);
+    if(!existing){
+      knownUsers.push({
+        username: currentUser.username,
+        name: currentUser.name,
+        firstSeen: new Date().toISOString(),
+        lastSeen: new Date().toISOString()
+      });
+      // Primul utilizator devine automat admin
+      if(admins.length===0) admins.push(currentUser.username);
+      saveToCloud(); // fără tracking — e auto-update
+    } else {
+      existing.lastSeen = new Date().toISOString();
+      if(existing.name !== currentUser.name) existing.name = currentUser.name;
+    }
+  }
+
+  // Verifică dacă user-ul curent e admin
+  updateAdminUI();
+
+  if(masini.length===0 && soferi.length===0){
+    seedInitialData();
+    saveToCloud();
+    return;
+  }
+  renderAll();
+}
+
+function updateAdminUI(){
+  const isAdmin = currentUser && admins.includes(currentUser.username);
+  const adminBtn = document.getElementById('tab-btn-admin');
+  const stricateBtn = document.getElementById('tab-btn-stricate');
+  if(adminBtn) adminBtn.style.display = isAdmin ? '' : 'none';
+  if(stricateBtn) stricateBtn.style.display = isAdmin ? '' : 'none';
+}
+
+function seedInitialData(){
+  // Date inițiale din fișierul original — se urcă în Firebase la primul start
+  masini=[
+    {id:1,tip:'CRAFTER',nr:'MU IE 801',sofer:'Mihai Adrian'},
+    {id:2,tip:'CRAFTER',nr:'MU IE 802',sofer:'Dobanda Dumitru'},
+    {id:3,tip:'CRAFTER',nr:'MU IE 803',sofer:'Bisoc Ionut'},
+    {id:4,tip:'CRAFTER',nr:'MU IE 804',sofer:'Musteata Ioan'},
+    {id:5,tip:'CRAFTER',nr:'MU IE 805',sofer:'Zestrea Mihail'},
+    {id:6,tip:'CRAFTER',nr:'MU IE 806',sofer:'Pop Marcel'},
+    {id:7,tip:'CRAFTER',nr:'MU IE 807',sofer:'Iacob Mihai'},
+    {id:8,tip:'CRAFTER',nr:'MU IE 808',sofer:'EISELFING'},
+    {id:9,tip:'CRAFTER',nr:'MU IE 809',sofer:'Buciu Petre'},
+    {id:10,tip:'',nr:'MU IE 810',sofer:''},
+    {id:11,tip:'CRAFTER',nr:'MU IE 811',sofer:'Serban Florin'},
+    {id:12,tip:'CRAFTER',nr:'MU IE 812',sofer:'Raghinaru Marian'},
+    {id:13,tip:'CRAFTER',nr:'MU IE 813',sofer:'DEPOZIT'},
+    {id:14,tip:'',nr:'MU IE 814',sofer:''},
+    {id:15,tip:'CRAFTER',nr:'MU IE 815',sofer:'Bitiusca Gabriel'},
+    {id:16,tip:'T6',nr:'MU IE 816',sofer:'Maies Antonio'},
+    {id:17,tip:'T6',nr:'MU IE 817',sofer:'Margau Rafael'},
+    {id:18,tip:'',nr:'MU IE 818',sofer:''},
+    {id:19,tip:'',nr:'MU IE 819',sofer:''},
+    {id:20,tip:'T6',nr:'MU IE 820',sofer:'Cazan Ionut'},
+    {id:21,tip:'T6',nr:'MU IE 821',sofer:'Ciobotaru Adrian'},
+    {id:22,tip:'T6',nr:'MU IE 822',sofer:'Ciobotaru Larisa'},
+    {id:23,tip:'T6',nr:'MU IE 823',sofer:'POLLING'},
+    {id:24,tip:'T6',nr:'MU IE 824',sofer:'POLLING'},
+    {id:25,tip:'T6',nr:'MU IE 825',sofer:'Cazan Ionut'},
+    {id:26,tip:'T6',nr:'MU IE 826',sofer:'EISELFING'},
+    {id:27,tip:'T6',nr:'MU IE 827',sofer:'Crainic Adrian'},
+    {id:28,tip:'T6',nr:'MU IE 828',sofer:'EISELFING'},
+    {id:29,tip:'T6',nr:'MU IE 829',sofer:'POLLING'},
+    {id:30,tip:'T6',nr:'MU IE 830',sofer:'Sparios Eduard'},
+    {id:31,tip:'T6',nr:'MU IE 831',sofer:'Feraru Razvan'},
+    {id:32,tip:'CRAFTER',nr:'MU IE 832',sofer:'Iacob Mihai'},
+    {id:33,tip:'CRAFTER',nr:'MU IE 833',sofer:'Dutescu Daniel'},
+    {id:34,tip:'CRAFTER',nr:'MU IE 834',sofer:'Stan Ionel'},
+    {id:35,tip:'CRAFTER',nr:'MU IE 835',sofer:'Moise Alexandru'},
+    {id:36,tip:'CRAFTER',nr:'MU IE 836',sofer:'DEPOZIT'},
+    {id:37,tip:'CRAFTER',nr:'MU IE 837',sofer:'Plesca Costel'},
+    {id:38,tip:'CRAFTER',nr:'MU IE 838',sofer:'Rudareanu Vladut'},
+    {id:39,tip:'T6',nr:'MU IE 839',sofer:'Bejenaru Ioan'},
+    {id:40,tip:'CRAFTER',nr:'MU IE 840',sofer:'Stinga Valeriu'},
+    {id:41,tip:'T6',nr:'MU IE 841',sofer:'Bainoczi Razvan'},
+    {id:42,tip:'T6',nr:'MU IE 842',sofer:'Ghebu Andreas'},
+    {id:43,tip:'CRAFTER',nr:'MU IE 843',sofer:'AVP'},
+    {id:44,tip:'CRAFTER',nr:'MU IE 844',sofer:'AVP'},
+    {id:45,tip:'CRAFTER',nr:'MU IE 845',sofer:'AVP'},
+    {id:46,tip:'T6',nr:'MU IE 846',sofer:'Farkas Rudolf'},
+    {id:47,tip:'T6',nr:'MU IE 847',sofer:'Burlacu Andrei'},
+    {id:48,tip:'T6',nr:'MU IE 848',sofer:'Simon Ferent'},
+    {id:49,tip:'T6',nr:'MU IE 849',sofer:'Stanciu Dumitru'},
+    {id:50,tip:'T6',nr:'MU IE 850',sofer:'Ciobotaru Iulian'},
+    {id:51,tip:'T6',nr:'MU IE 851',sofer:'Birliba Mihaela'},
+    {id:52,tip:'T6',nr:'MU IE 852',sofer:'Macarie Paul'},
+    {id:53,tip:'T6',nr:'MU IE 853',sofer:'Tuca Valentin'},
+    {id:54,tip:'T6',nr:'MU IE 854',sofer:'EISELFING'},
+    {id:55,tip:'T6',nr:'MU IE 855',sofer:'Badea Madalin'},
+    {id:56,tip:'T6',nr:'MU IE 856',sofer:'EISELFING'},
+    {id:57,tip:'T6',nr:'MU IE 857',sofer:'EISELFING'},
+    {id:58,tip:'',nr:'MU IE 858',sofer:''},
+    {id:59,tip:'',nr:'MU IE 859',sofer:''},
+    {id:60,tip:'CRAFTER',nr:'MU IE 860',sofer:'EISELFING'},
+    {id:61,tip:'CRAFTER',nr:'MU IE 861',sofer:'EISELFING'},
+    {id:62,tip:'CRAFTER',nr:'MU IE 862',sofer:'EISELFING'},
+    {id:63,tip:'CRAFTER',nr:'MU IE 863',sofer:'EISELFING'},
+    {id:64,tip:'CRAFTER',nr:'MU IE 864',sofer:'AVP'},
+    {id:65,tip:'CRAFTER',nr:'MU IE 866',sofer:'AVP'},
+    {id:66,tip:'CRAFTER',nr:'MU IE 867',sofer:'AVP'},
+    {id:67,tip:'',nr:'MU IE 868',sofer:''},
+    {id:68,tip:'CRAFTER',nr:'DEG EU 29',sofer:''},
+    {id:69,tip:'ELEKTRO',nr:'MU IE 872 E',sofer:'Iacob Mihai'},
+    {id:70,tip:'ELEKTRO',nr:'MU IE 874 E',sofer:'Dutescu Daniel'},
+    {id:71,tip:'CRAFTER',nr:'AÖ VW 54',sofer:'Mihai Adrian'}
+  ];
+  soferi=['Mihai Adrian','Dobanda Dumitru','Bisoc Ionut','Musteata Ioan','Zestrea Mihail','Pop Marcel','Iacob Mihai','Buciu Petre','Serban Florin','Raghinaru Marian','Bitiusca Gabriel','Maies Antonio','Margau Rafael','Cazan Ionut','Ciobotaru Adrian','Ciobotaru Larisa','Crainic Adrian','Sparios Eduard','Feraru Razvan','Dutescu Daniel','Stan Ionel','Moise Alexandru','Plesca Costel','Rudareanu Vladut','Bejenaru Ioan','Stinga Valeriu','Bainoczi Razvan','Ghebu Andreas','Farkas Rudolf','Burlacu Andrei','Simon Ferent','Stanciu Dumitru','Ciobotaru Iulian','Birliba Mihaela','Macarie Paul','Tuca Valentin','Badea Madalin'];
+  log=[];
+  carIdCtr=200;
+  logIdCtr=1;
+}
+
+let saveTimer=null;
+function saveToCloud(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async ()=>{
+    isSaving=true;
+    const payload={
+      masini,
+      soferi,
+      log: log.map(l=>({
+        ...l,
+        preluat: l.preluat ? l.preluat.toISOString() : null,
+        restituit: l.restituit ? l.restituit.toISOString() : null
+      })),
+      carIdCtr,
+      logIdCtr,
+      admins,
+      knownUsers,
+      lastModifiedBy: currentUser?.name || 'unknown',
+      lastModifiedAt: new Date().toISOString()
+    };
+    try{
+      await window.fbHelpers.setDoc(window.fbDocRef, payload);
+    } catch(e){
+      console.error('Save failed:', e);
+      toast('Salvare eșuată — '+e.message);
+      isSaving=false;
+    }
+  }, 250);
+}
+
+function showUserMenu(){
+  showTab('setari');
+}
+
+// ── STATS ────────────────────────────────────────────────────────────
+function updateStats(){
+  document.getElementById('stat-total').textContent=masini.length;
+  document.getElementById('stat-disp').textContent=masini.filter(m=>sk(m.sofer)==='DEPOZIT').length;
+  document.getElementById('stat-out').textContent=masini.filter(m=>sk(m.sofer)==='OUT').length;
+}
+
+// ── CARDS ────────────────────────────────────────────────────────────
+function setFilter(f){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));
+  renderCards();
+}
+
+function renderCards(){
+  const q=(document.getElementById('search')?.value||'').toLowerCase();
+  const filtered=masini.filter(m=>{
+    if(currentFilter==='all'){
+      // arătăm tot
+    } else if(currentFilter==='DEPOZIT'){
+      if(sk(m.sofer)!=='DEPOZIT') return false;
+    } else if(currentFilter==='OUT'){
+      if(sk(m.sofer)!=='OUT') return false;
+    } else if(currentFilter==='PAKETSHOP'){
+      if(sk(m.sofer)!=='PAKETSHOP') return false;
+    } else {
+      if(m.tip!==currentFilter) return false;
+    }
+    if(!q) return true;
+    return (m.nr||'').toLowerCase().includes(q) || (m.sofer||'').toLowerCase().includes(q);
+  });
+  const sec=document.getElementById('cards-section');
+  if(filtered.length===0){
+    sec.innerHTML='<div class="empty-state">Nicio mașină găsită.</div>';
+    return;
+  }
+  sec.innerHTML=filtered.map(m=>{
+    const tip=m.tip||'unknown';
+    const accentColor = tip==='CRAFTER' ? 'var(--crafter)' : tip==='T6' ? 'var(--t6)' : tip==='ELEKTRO' ? 'var(--elektro)' : '#444';
+    const dotColor = sc(m.sofer);
+    return `<div class="car-card">
+      <div class="card-accent" style="background:${accentColor}"></div>
+      <div class="card-top">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="tip-badge tip-${tip}">${tip}</span>
+          <div class="status-dot" style="background:${dotColor};width:7px;height:7px;border-radius:50%"></div>
+        </div>
+        <div class="card-actions">
+          <button class="icon-btn" onclick="openEditCar(${m.id})">✎</button>
+        </div>
+      </div>
+      <div class="nr-plate">${m.nr}</div>
+      <div class="driver-label">Șofer curent</div>
+      <select class="driver-select" onchange="askChangeDriver(${m.id}, this.value)">${buildOpts(m.sofer||'')}</select>
+    </div>`;
+  }).join('');
+  updateStats();
+}
+
+// ── SCHIMBĂ ȘOFER ────────────────────────────────────────────────────
+function askChangeDriver(carId, newDriver){
+  const m=masini.find(x=>x.id===carId);
+  if(!m) return;
+  // Compară pe nume real, nu pe categorie (sk) — altfel doi șoferi diferiți
+  // par "egali" pentru că ambii sunt categoria OUT
+  if((m.sofer||'')===(newDriver||'')){ renderCards(); return; }
+  pendingDriverChange={carId, newDriver, oldDriver:m.sofer};
+  document.getElementById('md-title').textContent='Schimbă șofer — '+m.nr;
+  document.getElementById('md-sub').textContent=`${m.sofer||'—'} → ${newDriver}`;
+  document.getElementById('md-driver').innerHTML=buildOpts(newDriver);
+  document.getElementById('md-dt').value=fmtDtInput(new Date());
+  document.getElementById('modal-driver').classList.add('open');
+}
+
+function closeModalDriver(){
+  document.getElementById('modal-driver').classList.remove('open');
+  pendingDriverChange=null;
+  renderCards(); // reset select
+}
+
+function confirmDriver(){
+  if(!pendingDriverChange)return;
+  const {carId} = pendingDriverChange;
+  const newDriver = document.getElementById('md-driver').value;
+  const dt = new Date(document.getElementById('md-dt').value);
+  const m = masini.find(x=>x.id===carId);
+  if(!m) return;
+
+  const userName = currentUser?.name || 'unknown';
+  const userUsername = currentUser?.username || '';
+
+  // Închide log-ul anterior dacă există — și înregistrează cine
+  const openLog = log.find(l => l.nr===m.nr && !l.restituit);
+  if(openLog){
+    openLog.restituit = dt;
+    openLog.restituitBy = userName;
+    openLog.restituitByUsername = userUsername;
+  }
+
+  // Deschide log nou pentru ORICE șofer/destinație (inclusiv DEPOZIT/POLLING/AVP/etc)
+  // ca să avem istoricul COMPLET al fiecărei mașini
+  if(newDriver !== ''){
+    log.push({
+      id: logIdCtr++,
+      nr: m.nr,
+      tip: m.tip,
+      sofer: newDriver,
+      preluat: dt,
+      restituit: null,
+      preluatBy: userName,
+      preluatByUsername: userUsername
+    });
+  }
+
+  m.sofer = newDriver;
+  closeModalDriver();
+  saveToCloud();
+  renderAll();
+  toast('Șofer schimbat');
+}
+
+// ── LOG ──────────────────────────────────────────────────────────────
+function renderLog(){
+  const q=(document.getElementById('log-search')?.value||'').toLowerCase();
+  const sorted=log.slice().sort((a,b)=>(b.preluat?.getTime()||0)-(a.preluat?.getTime()||0));
+  const filtered=sorted.filter(l=>{
+    if(!q) return true;
+    return (l.nr||'').toLowerCase().includes(q) || (l.sofer||'').toLowerCase().includes(q);
+  });
+  const sec=document.getElementById('log-section');
+  const mob=document.getElementById('log-mobile-section');
+  if(filtered.length===0){
+    sec.innerHTML='<div class="empty-state">Niciun log</div>';
+    mob.innerHTML='<div class="empty-state">Niciun log</div>';
+    return;
+  }
+  sec.innerHTML=filtered.map(l=>{
+    const activ=!l.restituit;
+    const modBy = l.preluatBy || l.restituitBy || '—';
+    return `<div class="log-row">
+      <div class="log-nr">${l.nr}</div>
+      <div>${l.sofer}</div>
+      <div><span class="log-badge">${l.tip||'-'}</span></div>
+      <div class="log-time">${fmtDt(l.preluat)}</div>
+      <div class="log-time">${l.restituit?fmtDt(l.restituit):'—'}</div>
+      <div><span class="log-badge ${activ?'badge-activ':'badge-inchis'}">${activ?'ACTIV':'ÎNCHIS'}</span></div>
+      <div style="font-size:12px;color:var(--text2)" title="${modBy}">${modBy}</div>
+      <div><button class="log-edit-btn" onclick="openEditLog(${l.id})">✎</button></div>
+    </div>`;
+  }).join('');
+  mob.innerHTML=filtered.map(l=>{
+    const activ=!l.restituit;
+    const modBy = l.preluatBy || l.restituitBy || '—';
+    return `<div class="log-mobile-card" onclick="openEditLog(${l.id})">
+      <div class="log-mobile-top">
+        <div class="log-mobile-driver">${l.sofer}</div>
+        <span class="log-badge ${activ?'badge-activ':'badge-inchis'}">${activ?'ACTIV':'ÎNCHIS'}</span>
+      </div>
+      <div class="log-mobile-row"><span>Mașină</span><span>${l.nr} · ${l.tip||'-'}</span></div>
+      <div class="log-mobile-row"><span>Preluat</span><span>${fmtDt(l.preluat)}</span></div>
+      <div class="log-mobile-row"><span>Restituit</span><span>${l.restituit?fmtDt(l.restituit):'—'}</span></div>
+      <div class="log-mobile-row"><span>Modificat de</span><span>${modBy}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function openEditLog(id){
+  editingLogId=id;
+  const l=log.find(x=>x.id===id);
+  if(!l)return;
+  document.getElementById('ml-sub').textContent=l.nr+' · '+l.sofer;
+  document.getElementById('ml-nr').value=l.nr;
+  document.getElementById('ml-sofer').innerHTML=buildOpts(l.sofer);
+  document.getElementById('ml-preluat').value=fmtDtInput(l.preluat);
+  document.getElementById('ml-restituit').value=l.restituit?fmtDtInput(l.restituit):'';
+  document.getElementById('modal-log').classList.add('open');
+}
+function closeModalLog(){document.getElementById('modal-log').classList.remove('open');editingLogId=null;}
+function saveLog(){
+  const l=log.find(x=>x.id===editingLogId);if(!l)return;
+  l.nr=document.getElementById('ml-nr').value.trim();
+  l.sofer=document.getElementById('ml-sofer').value;
+  const p=document.getElementById('ml-preluat').value;
+  const r=document.getElementById('ml-restituit').value;
+  l.preluat=p?new Date(p):null;
+  l.restituit=r?new Date(r):null;
+  l.editedBy = currentUser?.name || 'unknown';
+  l.editedAt = new Date().toISOString();
+  closeModalLog();
+  saveToCloud();
+  renderAll();
+  toast('Log salvat');
+}
+function deleteLog(){
+  if(!confirm('Ștergi acest log?'))return;
+  log=log.filter(x=>x.id!==editingLogId);
+  closeModalLog();
+  saveToCloud();
+  renderAll();
+  toast('Log șters');
+}
+
+function openAddLog(){
+  document.getElementById('al-nr').innerHTML=masini.map(m=>`<option value="${m.nr}">${m.nr} (${m.tip})</option>`).join('');
+  document.getElementById('al-sofer').innerHTML=buildOpts('');
+  document.getElementById('al-preluat').value=fmtDtInput(new Date());
+  document.getElementById('al-restituit').value='';
+  document.getElementById('modal-addlog').classList.add('open');
+}
+function closeModalAddLog(){document.getElementById('modal-addlog').classList.remove('open');}
+function saveAddLog(){
+  const nr=document.getElementById('al-nr').value;
+  const sofer=document.getElementById('al-sofer').value;
+  const p=document.getElementById('al-preluat').value;
+  const r=document.getElementById('al-restituit').value;
+  const m=masini.find(x=>x.nr===nr);
+  if(!m||!p){toast('Completează datele');return;}
+  const userName = currentUser?.name || 'unknown';
+  const userUsername = currentUser?.username || '';
+  log.push({
+    id:logIdCtr++,
+    nr,
+    tip:m.tip,
+    sofer,
+    preluat:new Date(p),
+    restituit:r?new Date(r):null,
+    preluatBy: userName,
+    preluatByUsername: userUsername,
+    restituitBy: r ? userName : null,
+    restituitByUsername: r ? userUsername : null
+  });
+  closeModalAddLog();
+  saveToCloud();
+  renderAll();
+  toast('Log adăugat');
+}
+
+// ── AMENDA ───────────────────────────────────────────────────────────
+function cautaAmenda(){
+  const nr=document.getElementById('amenda-nr').value.trim().toUpperCase();
+  const dtStr=document.getElementById('amenda-dt').value;
+  const res=document.getElementById('amenda-rezultat');
+  if(!nr||!dtStr){res.innerHTML='<div style="color:var(--text3);font-size:13px">Completează ambele câmpuri.</div>';return;}
+  const dt=new Date(dtStr);
+  const hits=log.filter(l=>{
+    if((l.nr||'').toUpperCase()!==nr) return false;
+    if(!l.preluat) return false;
+    return dt>=l.preluat && dt<=(l.restituit||new Date(9999,0,1));
+  });
+  if(!hits.length){
+    const mc=masini.find(m=>m.nr.toUpperCase()===nr);
+    if(mc&&mc.sofer&&!SPECIALS.includes(mc.sofer)){
+      res.innerHTML=`<div style="padding:14px;background:rgba(255,159,74,.07);border:1px solid rgba(255,159,74,.25);border-radius:var(--radius);font-size:13px;color:var(--t6)">Nu există perioadă exactă în log pentru această dată.<br>Șoferul curent al mașinii <strong style="font-family:var(--mono)">${mc.nr}</strong> este <strong>${mc.sofer}</strong>, dar nu sunt date de preluare înregistrate.</div>`;
+    } else {
+      res.innerHTML=`<div style="padding:14px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text3)">Niciun șofer înregistrat pentru <strong style="color:var(--text);font-family:var(--mono)">${nr}</strong> la <strong style="color:var(--text)">${fmtDt(dt)}</strong>.</div>`;
+    }
+    return;
+  }
+  const l=hits[hits.length-1];
+  res.innerHTML=`<div style="display:flex;align-items:flex-start;gap:14px;padding:16px;background:rgba(200,245,66,.06);border:1px solid rgba(200,245,66,.22);border-radius:var(--radius)">
+    <div style="color:var(--accent);font-size:22px;margin-top:2px;flex-shrink:0">✓</div>
+    <div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:6px">Mașina <strong style="color:var(--text);font-family:var(--mono)">${l.nr}</strong> la data <strong style="color:var(--text)">${fmtDt(dt)}</strong> era condusă de:</div>
+      <div style="font-size:22px;font-weight:500;color:var(--accent);font-family:var(--mono);margin-bottom:8px">${l.sofer}</div>
+      <div style="font-size:12px;color:var(--text3)">Perioadă: ${fmtDt(l.preluat)} → ${l.restituit?fmtDt(l.restituit):'prezent'}</div>
+    </div>
+  </div>`;
+}
+
+// ── DISPONIBIL ───────────────────────────────────────────────────────
+function renderDisponibil(){
+  const sec=document.getElementById('disp-section');sec.innerHTML='';
+  ['CRAFTER','T6','ELEKTRO'].forEach(tip=>{
+    const d=masini.filter(m=>m.tip===tip&&sk(m.sofer)==='DEPOZIT');
+    const col=document.createElement('div');col.className='disp-col';
+    col.innerHTML=`<div class="disp-header"><div class="disp-count cnt-${tip}">${d.length}</div><div class="disp-tip-label">${tip} la depozit</div></div>
+      <div class="disp-items">${d.length===0?'<div class="disp-empty">Niciuna disponibilă</div>':d.map(m=>`<div class="disp-item"><div class="disp-dot"></div>${m.nr}</div>`).join('')}</div>`;
+    sec.appendChild(col);
+  });
+}
+
+// ── SOFERI ───────────────────────────────────────────────────────────
+function renderSoferi(){
+  const am={};masini.filter(m=>m.sofer&&!SPECIALS.includes(m.sofer)&&m.sofer!=='').forEach(m=>{am[m.sofer]=m;});
+  const sec=document.getElementById('soferi-section');
+  if(soferi.length===0){
+    sec.innerHTML='<div class="empty-state">Niciun șofer. Adaugă din tab-ul Setări.</div>';
+    return;
+  }
+  sec.innerHTML=soferi.slice().sort().map(s=>{
+    const m=am[s];const c=avc(s);
+    return`<div class="sofer-card"><div class="sofer-avatar" style="background:${c}33;color:${c}">${initials(s)}</div><div><div style="font-size:14px;font-weight:500">${s}</div>${m?`<div style="font-family:var(--mono);font-size:12px;color:var(--text2);margin-top:3px">${m.nr}</div><div style="font-size:11px;margin-top:3px;color:${m.tip==='T6'?'var(--t6)':m.tip==='CRAFTER'?'var(--crafter)':'var(--elektro)'}">${m.tip}</div>`:`<div style="font-size:12px;color:var(--text3);margin-top:3px">— nealocat —</div>`}</div></div>`;
+  }).join('');
+}
+
+// ── SETARI ───────────────────────────────────────────────────────────
+function renderSetari(){
+  document.getElementById('new-sofer-sel').innerHTML=buildOpts('DEPOZIT');
+  const list=document.getElementById('soferi-list-manage');
+  if(soferi.length===0){
+    list.innerHTML='<div style="font-size:12px;color:var(--text3)">Niciun șofer adăugat.</div>';
+    return;
+  }
+  list.innerHTML=
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">`+
+    soferi.slice().sort().map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:13px"><span>${s}</span><button onclick="removeSofer(${JSON.stringify(s)})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1">×</button></div>`).join('')+'</div>';
+}
+function addSofer(){
+  const inp=document.getElementById('new-sofer-input');
+  const n=inp.value.trim();
+  if(!n||soferi.includes(n))return;
+  soferi.push(n);
+  inp.value='';
+  saveToCloud();
+  renderAll();
+  toast('Șofer adăugat');
+}
+function removeSofer(n){
+  if(!confirm('Ștergi șoferul "'+n+'"?'))return;
+  soferi=soferi.filter(s=>s!==n);
+  saveToCloud();
+  renderAll();
+  toast('Șofer șters');
+}
+function addMasina(){
+  const tip=document.getElementById('new-tip').value;
+  const nr=document.getElementById('new-nr').value.trim();
+  const sofer=document.getElementById('new-sofer-sel').value;
+  if(!nr){toast('Adaugă numărul');return;}
+  masini.push({id:carIdCtr++,tip,nr,sofer});
+  const userName = currentUser?.name || 'unknown';
+  const userUsername = currentUser?.username || '';
+  if(sofer&&sofer!==''){
+    log.push({
+      id:logIdCtr++,nr,tip,sofer,
+      preluat:new Date(),restituit:null,
+      preluatBy: userName, preluatByUsername: userUsername
+    });
+  }
+  document.getElementById('new-nr').value='';
+  saveToCloud();
+  renderAll();
+  toast('Mașină adăugată');
+}
+
+// ── EDIT MASINA ──────────────────────────────────────────────────────
+function openEditCar(id){
+  editingCarId=id;
+  const m=masini.find(x=>x.id===id);
+  document.getElementById('me-title').textContent='Editează — '+m.nr;
+  document.getElementById('me-tip').value=m.tip||'';
+  document.getElementById('me-nr').value=m.nr;
+  document.getElementById('modal-edit').classList.add('open');
+}
+function saveEdit(){
+  const m=masini.find(x=>x.id===editingCarId);
+  if(!m)return;
+  const oldNr=m.nr;
+  m.tip=document.getElementById('me-tip').value;
+  m.nr=document.getElementById('me-nr').value.trim();
+  closeModalEdit();
+  saveToCloud();
+  renderAll();
+  toast('Mașină salvată');
+}
+function deleteMasina(){
+  if(!confirm('Ștergi această mașină?'))return;
+  const m=masini.find(x=>x.id===editingCarId);
+  masini=masini.filter(x=>x.id!==editingCarId);
+  closeModalEdit();
+  saveToCloud();
+  renderAll();
+  toast('Mașină ștearsă');
+}
+function closeModalEdit(){document.getElementById('modal-edit').classList.remove('open');editingCarId=null;}
+
+// ── EXPORT ───────────────────────────────────────────────────────────
+function exportData(){
+  const data=JSON.stringify({masini,soferi,log:log.map(l=>({...l,preluat:l.preluat?.toISOString(),restituit:l.restituit?.toISOString()}))},null,2);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download='flota_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  toast('Export generat');
+}
+
+function renderStricate(){
+  const sec=document.getElementById('stricate-section');
+  if(!sec) return;
+  const stricate = masini.filter(m => sk(m.sofer)==='STRICATA');
+  if(stricate.length===0){
+    sec.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px 20px;text-align:center"><div style="font-size:32px;margin-bottom:10px">✓</div><div style="font-size:14px;color:var(--text2)">Nicio mașină stricată momentan!</div></div>';
+    return;
+  }
+  // Pentru fiecare, găsesc ultima intrare în log unde a fost marcată stricată
+  sec.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">'+
+    stricate.map(m=>{
+      const tipColor = m.tip==='CRAFTER' ? 'var(--crafter)' : m.tip==='T6' ? 'var(--t6)' : m.tip==='ELEKTRO' ? 'var(--elektro)' : '#444';
+      const lastLog = log.slice().reverse().find(l => l.nr===m.nr && (l.sofer||'').toUpperCase()==='STRICATA');
+      const since = lastLog?.preluat ? fmtDt(lastLog.preluat) : '—';
+      const by = lastLog?.preluatBy || '—';
+      return `<div style="background:var(--surface);border:1px solid rgba(255,90,90,.3);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:var(--danger)"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span class="tip-badge tip-${m.tip||'unknown'}">${m.tip||'?'}</span>
+          <button class="icon-btn" onclick="openEditCar(${m.id})">✎</button>
+        </div>
+        <div style="font-family:var(--mono);font-size:16px;font-weight:500;margin-bottom:10px;letter-spacing:.04em">${m.nr}</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Stricată din</div>
+        <div style="font-family:var(--mono);font-size:13px;color:var(--text);margin-bottom:8px">${since}</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Marcată de</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">${by}</div>
+        <select class="driver-select" onchange="askChangeDriver(${m.id}, this.value)">${buildOpts(m.sofer||'')}</select>
+      </div>`;
+    }).join('')+'</div>';
+}
+
+// ── ADMIN ────────────────────────────────────────────────────────────
+async function adminCreateUser(){
+  const username = document.getElementById('admin-new-username').value.trim().toLowerCase();
+  const password = document.getElementById('admin-new-password').value;
+  const displayName = document.getElementById('admin-new-displayname').value.trim();
+  const result = document.getElementById('admin-create-result');
+
+  if(!username || !password || !displayName){
+    result.innerHTML='<div style="color:var(--danger);font-size:13px">Completează toate câmpurile.</div>';
+    return;
+  }
+  if(!/^[a-z0-9_.-]+$/.test(username)){
+    result.innerHTML='<div style="color:var(--danger);font-size:13px">Username doar litere mici, cifre, punct, liniuță și underscore.</div>';
+    return;
+  }
+  if(password.length < 6){
+    result.innerHTML='<div style="color:var(--danger);font-size:13px">Parolă minim 6 caractere.</div>';
+    return;
+  }
+
+  result.innerHTML='<div style="color:var(--text2);font-size:13px">Se creează contul...</div>';
+
+  try{
+    const email = username + FAKE_DOMAIN;
+    const cred = await window.fbHelpers.signUp(window.fbAuth, email, password);
+    await window.fbHelpers.updateProfile(cred.user, { displayName });
+
+    // Adaug în knownUsers înainte să se deconecteze
+    knownUsers.push({
+      username,
+      name: displayName,
+      firstSeen: new Date().toISOString(),
+      lastSeen: new Date().toISOString(),
+      createdBy: currentUser.username
+    });
+
+    result.innerHTML=`<div style="color:var(--accent);font-size:13px;background:rgba(200,245,66,.06);border:1px solid rgba(200,245,66,.22);border-radius:var(--radius);padding:12px">
+      ✓ Cont creat: <strong>${username}</strong> (${displayName})<br>
+      <span style="color:var(--text2)">Spune-i parola: <strong style="font-family:var(--mono);color:var(--text)">${password}</strong></span><br>
+      <span style="color:var(--text3);font-size:12px">Vei fi delogat automat în 3 secunde — apoi te re-loghezi cu contul tău.</span>
+    </div>`;
+
+    // Trebuie să salvăm knownUsers înainte de delogare (Firebase semnează automat in noul user creat)
+    await window.fbHelpers.setDoc(window.fbDocRef, {
+      masini, soferi,
+      log: log.map(l=>({...l, preluat: l.preluat?l.preluat.toISOString():null, restituit: l.restituit?l.restituit.toISOString():null})),
+      carIdCtr, logIdCtr, admins, knownUsers,
+      lastModifiedBy: currentUser.name,
+      lastModifiedAt: new Date().toISOString()
+    });
+
+    document.getElementById('admin-new-username').value='';
+    document.getElementById('admin-new-password').value='';
+    document.getElementById('admin-new-displayname').value='';
+
+    // Delogare după 3s ca să vedem mesajul
+    setTimeout(async ()=>{
+      await window.fbHelpers.signOut(window.fbAuth);
+      location.reload();
+    }, 3000);
+
+  } catch(e){
+    let msg=e.message||'Eroare necunoscută';
+    if(e.code==='auth/email-already-in-use') msg='Username deja folosit.';
+    else if(e.code==='auth/weak-password') msg='Parolă prea slabă.';
+    else if(e.code==='auth/invalid-email') msg='Username invalid.';
+    result.innerHTML=`<div style="color:var(--danger);font-size:13px">Eroare: ${msg}</div>`;
+  }
+}
+
+function renderAdminUsers(){
+  const sec=document.getElementById('admin-users-list');
+  if(!sec) return;
+  if(!knownUsers || knownUsers.length===0){
+    sec.innerHTML='<div style="font-size:12px;color:var(--text3)">Niciun utilizator înregistrat încă.</div>';
+    return;
+  }
+  sec.innerHTML='<div style="display:grid;gap:8px">'+
+    knownUsers.slice().sort((a,b)=>a.username.localeCompare(b.username)).map(u=>{
+      const c=avc(u.name);
+      const isAdmin = admins.includes(u.username);
+      const isMe = currentUser && u.username===currentUser.username;
+      return `<div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px">
+        <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:${c}33;color:${c};flex-shrink:0">${initials(u.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500">${u.name}${isMe?' <span style="color:var(--text3);font-size:11px;font-weight:400">(tu)</span>':''}</div>
+          <div style="font-family:var(--mono);font-size:12px;color:var(--text2)">${u.username}</div>
+        </div>
+        ${isAdmin?'<span style="font-size:11px;font-weight:500;color:var(--accent);background:rgba(200,245,66,.12);padding:3px 8px;border-radius:3px">ADMIN</span>':''}
+        ${isMe?'':`<button onclick="adminDeleteUser('${u.username.replace(/'/g,"\\'")}')" style="background:none;border:1px solid rgba(255,90,90,.4);color:var(--danger);cursor:pointer;font-size:12px;padding:5px 10px;border-radius:4px;flex-shrink:0">Șterge</button>`}
+      </div>`;
+    }).join('')+'</div>';
+}
+
+function adminDeleteUser(username){
+  const u = knownUsers.find(x=>x.username===username);
+  if(!u){ toast('Utilizator negăsit'); return; }
+  if(!confirm(`Ștergi utilizatorul "${u.name}" (${username}) din listă?\n\nIMPORTANT: Această acțiune îl scoate doar din lista locală. Pentru a-l împiedica complet să se logeze, mergi separat în Firebase Console → Authentication și șterge-l și de acolo.`)) return;
+  knownUsers = knownUsers.filter(x=>x.username!==username);
+  // Dacă era admin, scoate-l și din lista de admini
+  admins = admins.filter(a=>a!==username);
+  saveToCloud();
+  renderAdminUsers();
+  document.getElementById('admin-list-input').value = admins.join(', ');
+  toast('Utilizator șters din listă');
+}
+
+function adminSaveAdmins(){
+  const input = document.getElementById('admin-list-input').value.trim();
+  if(!input){ toast('Lista nu poate fi goală — măcar tu trebuie să fii admin'); return; }
+  const list = input.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  if(!list.includes(currentUser.username)){
+    if(!confirm('Nu te-ai inclus pe tine în lista admin! Vei pierde accesul la acest tab. Continui?')) return;
+  }
+  admins = list;
+  saveToCloud();
+  toast('Listă admin salvată');
+  updateAdminUI();
+  renderAdmin();
+}
+
+function renderAdmin(){
+  renderAdminUsers();
+  document.getElementById('admin-list-input').value = admins.join(', ');
+}
+// ── TABS ─────────────────────────────────────────────────────────────
+function showTab(name){
+  ['masini','disponibil','log','amenda','soferi','setari','stricate','admin'].forEach(t=>{
+    const el=document.getElementById('tab-'+t);
+    if(el) el.style.display=t===name?'':'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  const tabBtns=document.querySelectorAll('.tab-btn');
+  const idx=['masini','disponibil','log','amenda','soferi','setari','stricate','admin'].indexOf(name);
+  if(idx>=0 && tabBtns[idx]) tabBtns[idx].classList.add('active');
+  document.getElementById('toolbar-masini').style.display=name==='masini'?'':'none';
+  if(name==='setari')renderSetari();
+  if(name==='admin')renderAdmin();
+  if(name==='stricate')renderStricate();
+}
+
+// ── CLOSE MODAL PE OVERLAY ───────────────────────────────────────────
+[['modal-driver',closeModalDriver],['modal-log',closeModalLog],['modal-addlog',closeModalAddLog],['modal-edit',closeModalEdit]].forEach(([id,fn])=>{
+  document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id)fn();});
+});
+
+function renderAll(){renderCards();renderDisponibil();renderLog();renderSoferi();updateStats();if(document.getElementById('tab-setari').style.display!=='none')renderSetari();}
+
+// Expune funcțiile globale pentru onclick handlers
+window.showTab=showTab;
+window.setFilter=setFilter;
+window.askChangeDriver=askChangeDriver;
+window.confirmDriver=confirmDriver;
+window.closeModalDriver=closeModalDriver;
+window.openEditCar=openEditCar;
+window.saveEdit=saveEdit;
+window.deleteMasina=deleteMasina;
+window.closeModalEdit=closeModalEdit;
+window.openEditLog=openEditLog;
+window.saveLog=saveLog;
+window.deleteLog=deleteLog;
+window.closeModalLog=closeModalLog;
+window.openAddLog=openAddLog;
+window.saveAddLog=saveAddLog;
+window.closeModalAddLog=closeModalAddLog;
+window.cautaAmenda=cautaAmenda;
+window.addSofer=addSofer;
+window.removeSofer=removeSofer;
+window.addMasina=addMasina;
+window.exportData=exportData;
+window.doAuth=doAuth;
+window.doLogout=doLogout;
+window.showUserMenu=showUserMenu;
+window.adminCreateUser=adminCreateUser;
+window.adminSaveAdmins=adminSaveAdmins;
+window.adminDeleteUser=adminDeleteUser;
+
+// Enter key pentru login
+document.getElementById('login-password').addEventListener('keypress',e=>{if(e.key==='Enter')doAuth();});
+document.getElementById('login-email').addEventListener('keypress',e=>{if(e.key==='Enter')doAuth();});
+
+// PWA service worker — cu auto-reîmprospătare la versiune nouă
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      // Verifică update la fiecare deschidere
+      reg.update();
+      // Când vine versiune nouă, anunță utilizatorul
+      reg.addEventListener('updatefound', ()=>{
+        const newWorker = reg.installing;
+        if(newWorker){
+          newWorker.addEventListener('statechange', ()=>{
+            if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
+              // Versiune nouă disponibilă — afișează notificare
+              if(confirm('O versiune nouă a aplicației este disponibilă. Reîncarci acum?')){
+                newWorker.postMessage('SKIP_WAITING');
+                window.location.reload();
+              }
+            }
+          });
+        }
+      });
+    }).catch(()=>{});
+    // Reload automat când service worker-ul nou ia controlul
+    let reloading=false;
+    navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+      if(reloading) return;
+      reloading=true;
+      window.location.reload();
+    });
+  });
+}
+</script>
+
+</body>
+</html>
