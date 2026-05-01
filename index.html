@@ -6,10 +6,10 @@
 <meta name="theme-color" content="#0f0f0f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Flotă">
+<meta name="apple-mobile-web-app-title" content="Flota MTC">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Gestiune Flotă Auto</title>
+<title>FLOTA MTC TRANSPORT — Gestiune auto</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -39,6 +39,16 @@ button{font-family:inherit;}
 .login-toggle a{color:var(--accent);text-decoration:none;cursor:pointer;}
 .login-error{background:rgba(255,90,90,.1);border:1px solid rgba(255,90,90,.3);color:var(--danger);padding:10px 12px;border-radius:var(--radius);font-size:13px;margin-bottom:14px;}
 .login-hint{font-size:12px;color:var(--text3);margin-top:18px;text-align:center;line-height:1.5;}
+
+/* Quick login buttons */
+.quick-user-btn{display:flex;align-items:center;gap:14px;width:100%;padding:14px 18px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:16px;font-weight:500;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;}
+.quick-user-btn:active,.quick-user-btn:hover{background:var(--surface);border-color:var(--accent);}
+.quick-user-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;}
+.quick-user-avatar[data-name="Cristi"]{background:rgba(74,158,255,.15);color:#4a9eff;}
+.quick-user-avatar[data-name="Mihaela"]{background:rgba(255,122,198,.15);color:#ff7ac6;}
+.quick-user-avatar[data-name="Raluca"]{background:rgba(74,255,160,.15);color:#4affa0;}
+.admin-toggle-btn{margin-top:8px;padding:11px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);color:var(--text2);font-size:13px;cursor:pointer;font-family:inherit;}
+.admin-toggle-btn:active,.admin-toggle-btn:hover{color:var(--text);border-color:var(--border2);}
 
 /* ── HEADER ────────────────────────────────────────── */
 .header{border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:100;gap:12px;}
@@ -174,6 +184,17 @@ button{font-family:inherit;}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 18px;font-size:13px;z-index:400;box-shadow:0 4px 12px rgba(0,0,0,.4);max-width:90vw;opacity:0;transition:opacity .2s;pointer-events:none;}
 .toast.show{opacity:1;}
 
+/* ── ROL USER (non-admin) — ascund controale de editare ── */
+body.user-mode .icon-btn,
+body.user-mode .log-edit-btn,
+body.user-mode .btn-add-log,
+body.user-mode .card-actions {
+  display: none !important;
+}
+body.user-mode .log-mobile-card {
+  cursor: default;
+}
+
 /* ── RESPONSIVE TELEFON ────────────────────────────── */
 @media (max-width:640px){
   .header{padding:12px 14px;flex-wrap:wrap;}
@@ -209,19 +230,44 @@ button{font-family:inherit;}
 <!-- ── LOGIN SCREEN ───────────────────────────────────────────── -->
 <div id="login-screen" class="login-screen" style="display:none">
   <div class="login-box">
-    <div class="login-logo">FLOTĂ // AUTH</div>
-    <div class="login-title" id="login-title">Conectare</div>
+    <div class="login-logo">MTC TRANSPORT</div>
+    <div class="login-title">Gestiune flotă mașini</div>
     <div id="login-error" class="login-error" style="display:none"></div>
-    <div class="login-field">
-      <div class="login-label">Username sau email</div>
-      <input id="login-email" type="text" class="login-input" autocomplete="username" placeholder="ex: paul">
+
+    <!-- Selecție user prestabilit -->
+    <div id="login-quick" style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+      <button class="quick-user-btn" onclick="quickLogin('cristi','Cristi')">
+        <div class="quick-user-avatar" data-name="Cristi">C</div>
+        <span>Cristi</span>
+      </button>
+      <button class="quick-user-btn" onclick="quickLogin('mihaela','Mihaela')">
+        <div class="quick-user-avatar" data-name="Mihaela">M</div>
+        <span>Mihaela</span>
+      </button>
+      <button class="quick-user-btn" onclick="quickLogin('raluca','Raluca')">
+        <div class="quick-user-avatar" data-name="Raluca">R</div>
+        <span>Raluca</span>
+      </button>
+      <button class="admin-toggle-btn" onclick="showAdminLogin()">
+        ⚙ Admin
+      </button>
     </div>
-    <div class="login-field">
-      <div class="login-label">Parolă</div>
-      <input id="login-password" type="password" class="login-input" autocomplete="current-password" placeholder="••••••••">
+
+    <!-- Login admin (ascuns inițial) -->
+    <div id="login-admin" style="display:none;margin-top:8px">
+      <div class="login-field">
+        <div class="login-label">Email sau username</div>
+        <input id="login-email" type="text" class="login-input" autocomplete="username" placeholder="email sau username admin">
+      </div>
+      <div class="login-field">
+        <div class="login-label">Parolă</div>
+        <input id="login-password" type="password" class="login-input" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button id="login-btn" class="login-btn" onclick="doAuth()">Intră ca admin</button>
+      <div style="text-align:center;margin-top:14px;font-size:13px">
+        <a onclick="hideAdminLogin()" style="color:var(--text2);cursor:pointer;text-decoration:none">← înapoi la utilizatori</a>
+      </div>
     </div>
-    <button id="login-btn" class="login-btn" onclick="doAuth()">Intră</button>
-    <div class="login-hint">Conturile sunt create de administrator.<br>Dacă ai uitat parola, contactează admin.</div>
   </div>
 </div>
 
@@ -230,8 +276,8 @@ button{font-family:inherit;}
 
 <div class="header">
   <div class="header-left">
-    <div class="logo">FLOTĂ //</div>
-    <div class="header-title">Gestiune Auto</div>
+    <div class="logo">FLOTA MTC TRANSPORT //</div>
+    <div class="header-title">Gestiune auto</div>
   </div>
   <div class="header-right">
     <div class="header-stats">
@@ -375,37 +421,28 @@ button{font-family:inherit;}
   <!-- ── TAB ADMIN ────────────────────────────────────────── -->
   <div id="tab-admin" style="display:none">
     <div class="settings-section">
-      <div class="settings-title">Creează cont nou pentru coleg</div>
+      <div class="settings-title">Utilizatori prestabiliți</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6">
-        Creezi tu conturile, ei doar se loghează cu username + parolă pe care le stabilești tu.<br>
-        <strong style="color:var(--t6)">Atenție:</strong> după ce creezi un cont, vei fi delogat automat. Te re-loghezi tu apoi.
+        Cei 3 useri sunt creați automat la prima utilizare. Click pe "Delogare" mai jos forțează închiderea sesiunii lor de pe toate dispozitivele (vor trebui să se reconecteze).
       </div>
-      <div class="settings-row">
-        <input id="admin-new-username" placeholder="username (ex: paul)" autocomplete="off">
-        <input id="admin-new-password" type="text" placeholder="parolă (min. 6 caractere)" autocomplete="off">
-      </div>
-      <div class="settings-row">
-        <input id="admin-new-displayname" placeholder="nume afișat (ex: Paul Popescu)" autocomplete="off">
-        <button class="btn btn-primary" onclick="adminCreateUser()" style="flex:none;width:auto;min-width:140px">Creează cont</button>
-      </div>
-      <div id="admin-create-result" style="margin-top:10px"></div>
+      <div id="admin-quick-users-list"></div>
     </div>
 
     <div class="settings-section">
-      <div class="settings-title">Conturi existente</div>
+      <div class="settings-title">Conturi admin</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6">
-        Lista persoanelor care s-au logat. Pentru a șterge un cont sau a reseta parola, folosește Firebase Console → Authentication.
+        Username-urile cu drepturi complete (pot adăuga/edita mașini, șoferi, șterge log-uri). Username-uri separate prin virgulă.
+      </div>
+      <input id="admin-list-input" placeholder="username1,username2" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 12px;outline:none">
+      <button class="btn btn-primary" onclick="adminSaveAdmins()" style="margin-top:10px;flex:none;width:auto">Salvează</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-title">Toate conturile (admini + useri)</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.6">
+        Pentru ștergere completă din Firebase, mergi în Firebase Console → Authentication.
       </div>
       <div id="admin-users-list"></div>
-    </div>
-
-    <div class="settings-section">
-      <div class="settings-title">Configurare admini</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px">
-        Doar utilizatorii din lista de mai jos văd tab-ul Admin. Username-urile separate prin virgulă.
-      </div>
-      <input id="admin-list-input" placeholder="username1,username2,paul" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 12px;outline:none">
-      <button class="btn btn-primary" onclick="adminSaveAdmins()" style="margin-top:10px;flex:none;width:auto">Salvează lista admin</button>
     </div>
   </div>
 
@@ -524,7 +561,7 @@ button{font-family:inherit;}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile }
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, setPersistence, browserLocalPersistence }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -548,6 +585,9 @@ if (!firebaseConfig || !firebaseConfig.apiKey) {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+
+  // Persistență locală — userii rămân logați chiar și după reload sau închiderea browserului
+  setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
   // Sync offline (modifici fără net, se urcă când revii online)
   try { enableIndexedDbPersistence(db); } catch(e) {}
@@ -630,20 +670,67 @@ function toast(msg){
 }
 
 // ── AUTH ─────────────────────────────────────────────────────────────
-const FAKE_DOMAIN = '@flota.local'; // domeniul "fake" pentru username-uri
+const FAKE_DOMAIN = '@flota.local';
+// Parola fixă pentru cei 3 useri prestabiliți (nu o știu, e folosită automat)
+const QUICK_USER_PASSWORD = 'mtc-flota-2026-quickuser';
+const QUICK_USERS = [
+  { username: 'cristi', name: 'Cristi' },
+  { username: 'mihaela', name: 'Mihaela' },
+  { username: 'raluca', name: 'Raluca' }
+];
 
-// Convertește input (poate fi username sau email) în email pentru Firebase
 function toFirebaseEmail(input){
   const s = (input||'').trim();
-  if(s.includes('@')) return s; // email real
-  return s.toLowerCase() + FAKE_DOMAIN; // username → username@flota.local
+  if(s.includes('@')) return s;
+  return s.toLowerCase() + FAKE_DOMAIN;
 }
-
-// Extrage username (sau email) pentru afișare
 function fromFirebaseEmail(email){
   if(!email) return '';
   if(email.endsWith(FAKE_DOMAIN)) return email.slice(0, -FAKE_DOMAIN.length);
   return email;
+}
+
+function showAdminLogin(){
+  document.getElementById('login-quick').style.display='none';
+  document.getElementById('login-admin').style.display='';
+  document.getElementById('login-error').style.display='none';
+  setTimeout(()=>document.getElementById('login-email')?.focus(),50);
+}
+function hideAdminLogin(){
+  document.getElementById('login-admin').style.display='none';
+  document.getElementById('login-quick').style.display='';
+  document.getElementById('login-error').style.display='none';
+}
+
+// Login rapid pentru Cristi/Mihaela/Raluca — încearcă să se logheze, dacă userul nu există îl creează automat
+async function quickLogin(username, displayName){
+  const errEl=document.getElementById('login-error');
+  errEl.style.display='none';
+  const email = username + FAKE_DOMAIN;
+  const buttons=document.querySelectorAll('.quick-user-btn');
+  buttons.forEach(b=>b.disabled=true);
+  try{
+    try{
+      // Încearcă login direct
+      await window.fbHelpers.signIn(window.fbAuth, email, QUICK_USER_PASSWORD);
+    } catch(e){
+      // Userul probabil nu există încă — îl creăm
+      if(e.code==='auth/invalid-credential' || e.code==='auth/user-not-found' || e.code==='auth/wrong-password'){
+        const cred = await window.fbHelpers.signUp(window.fbAuth, email, QUICK_USER_PASSWORD);
+        await window.fbHelpers.updateProfile(cred.user, { displayName });
+      } else {
+        throw e;
+      }
+    }
+  } catch(e){
+    let msg = 'Nu m-am putut conecta';
+    if(e.code==='auth/network-request-failed') msg='Fără conexiune la internet';
+    else if(e.code==='auth/too-many-requests') msg='Prea multe încercări. Așteaptă câteva minute.';
+    else msg = e.message || msg;
+    errEl.textContent = msg;
+    errEl.style.display='';
+    buttons.forEach(b=>b.disabled=false);
+  }
 }
 
 async function doAuth(){
@@ -651,7 +738,7 @@ async function doAuth(){
   const pass=document.getElementById('login-password').value;
   const errEl=document.getElementById('login-error');
   errEl.style.display='none';
-  if(!input || !pass){ errEl.textContent='Completează username și parolă'; errEl.style.display=''; return; }
+  if(!input || !pass){ errEl.textContent='Completează email și parolă'; errEl.style.display=''; return; }
 
   const btn=document.getElementById('login-btn');
   btn.disabled=true; btn.textContent='...';
@@ -660,16 +747,16 @@ async function doAuth(){
     const email = toFirebaseEmail(input);
     await window.fbHelpers.signIn(window.fbAuth, email, pass);
   } catch(e){
-    let msg='Username sau parolă greșită';
-    if(e.code==='auth/invalid-credential' || e.code==='auth/wrong-password' || e.code==='auth/user-not-found') msg='Username sau parolă greșită';
-    else if(e.code==='auth/invalid-email') msg='Username invalid (folosește doar litere și cifre)';
+    let msg='Email/username sau parolă greșită';
+    if(e.code==='auth/invalid-credential' || e.code==='auth/wrong-password' || e.code==='auth/user-not-found') msg='Email/username sau parolă greșită';
+    else if(e.code==='auth/invalid-email') msg='Format invalid';
     else if(e.code==='auth/network-request-failed') msg='Fără conexiune la internet';
     else if(e.code==='auth/too-many-requests') msg='Prea multe încercări. Așteaptă câteva minute.';
     else msg=e.message||msg;
     errEl.textContent=msg; errEl.style.display='';
   }
   btn.disabled=false;
-  btn.textContent='Intră';
+  btn.textContent='Intră ca admin';
 }
 
 async function doLogout(){
@@ -678,9 +765,13 @@ async function doLogout(){
   location.reload();
 }
 
+// Variabilă globală pentru a ști dacă user-ul curent e admin
+let isAdminUser = false;
+
 window.addEventListener('firebase-ready', ()=>{
   window.fbHelpers.onAuth(window.fbAuth, (user)=>{
     if(user){
+      window._sessionStart = new Date();
       const username = fromFirebaseEmail(user.email);
       currentUser={
         uid:user.uid,
@@ -747,6 +838,19 @@ function hydrateFromCloud(d){
   logIdCtr = d.logIdCtr||1;
   admins = d.admins || [];
   knownUsers = d.knownUsers || [];
+  window._currentForcedLogouts = d.forcedLogouts || {};
+
+  // Verifică forced logout pentru user-ul curent
+  if(currentUser && window._currentForcedLogouts[currentUser.username]){
+    const forcedAt = new Date(window._currentForcedLogouts[currentUser.username]);
+    const sessionStart = window._sessionStart || new Date(0);
+    if(forcedAt > sessionStart){
+      // Sesiunea e mai veche decât forced logout — delogăm
+      console.log('Forced logout detected, signing out');
+      window.fbHelpers.signOut(window.fbAuth).then(()=>location.reload());
+      return;
+    }
+  }
 
   // Înregistrează user-ul curent în knownUsers (se face automat la prima logare)
   if(currentUser && currentUser.username){
@@ -780,10 +884,27 @@ function hydrateFromCloud(d){
 
 function updateAdminUI(){
   const isAdmin = currentUser && admins.includes(currentUser.username);
+  isAdminUser = isAdmin;
+
   const adminBtn = document.getElementById('tab-btn-admin');
   const stricateBtn = document.getElementById('tab-btn-stricate');
   if(adminBtn) adminBtn.style.display = isAdmin ? '' : 'none';
   if(stricateBtn) stricateBtn.style.display = isAdmin ? '' : 'none';
+
+  // Ascunde tab-ul Setări pentru non-admini
+  const setariBtns = document.querySelectorAll('.tab-btn');
+  setariBtns.forEach(b=>{
+    if(b.textContent.trim()==='Setări'){
+      b.style.display = isAdmin ? '' : 'none';
+    }
+  });
+
+  // Ascunde tab-ul Șoferi (read-only ar fi confuz) — opțional, lasă-l vizibil ca lista
+  // (păstrăm vizibil dar ascundem operațiile de adăugare/ștergere șoferi)
+
+  // Marchează body pentru CSS-ul restrictiv
+  document.body.classList.toggle('user-mode', !isAdmin);
+  document.body.classList.toggle('admin-mode', isAdmin);
 }
 
 function seedInitialData(){
@@ -884,6 +1005,7 @@ function saveToCloud(){
       logIdCtr,
       admins,
       knownUsers,
+      forcedLogouts: window._currentForcedLogouts || {},
       lastModifiedBy: currentUser?.name || 'unknown',
       lastModifiedAt: new Date().toISOString()
     };
@@ -1054,7 +1176,8 @@ function renderLog(){
   mob.innerHTML=filtered.map(l=>{
     const activ=!l.restituit;
     const modBy = l.preluatBy || l.restituitBy || '—';
-    return `<div class="log-mobile-card" onclick="openEditLog(${l.id})">
+    const onClick = isAdminUser ? `onclick="openEditLog(${l.id})"` : '';
+    return `<div class="log-mobile-card" ${onClick}>
       <div class="log-mobile-top">
         <div class="log-mobile-driver">${l.sofer}</div>
         <span class="log-badge ${activ?'badge-activ':'badge-inchis'}">${activ?'ACTIV':'ÎNCHIS'}</span>
@@ -1319,73 +1442,55 @@ function renderStricate(){
 }
 
 // ── ADMIN ────────────────────────────────────────────────────────────
-async function adminCreateUser(){
-  const username = document.getElementById('admin-new-username').value.trim().toLowerCase();
-  const password = document.getElementById('admin-new-password').value;
-  const displayName = document.getElementById('admin-new-displayname').value.trim();
-  const result = document.getElementById('admin-create-result');
+// Lista cu utilizatori prestabiliți pentru tab Admin
+function renderQuickUsers(){
+  const sec = document.getElementById('admin-quick-users-list');
+  if(!sec) return;
+  sec.innerHTML = '<div style="display:grid;gap:8px">' +
+    QUICK_USERS.map(u=>{
+      const c = avc(u.name);
+      const known = knownUsers.find(k=>k.username===u.username);
+      const lastSeen = known?.lastSeen ? new Date(known.lastSeen) : null;
+      const status = lastSeen ? `Ultima activitate: ${fmtDt(lastSeen)}` : 'Niciodată conectat';
+      return `<div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+        <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;background:${c}33;color:${c};flex-shrink:0">${initials(u.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500">${u.name}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">${status}</div>
+        </div>
+        <button onclick="forceLogoutUser('${u.username}')" style="background:none;border:1px solid rgba(255,159,74,.4);color:var(--t6);cursor:pointer;font-size:12px;padding:6px 12px;border-radius:4px;flex-shrink:0">Delogare</button>
+      </div>`;
+    }).join('') + '</div>';
+}
 
-  if(!username || !password || !displayName){
-    result.innerHTML='<div style="color:var(--danger);font-size:13px">Completează toate câmpurile.</div>';
-    return;
-  }
-  if(!/^[a-z0-9_.-]+$/.test(username)){
-    result.innerHTML='<div style="color:var(--danger);font-size:13px">Username doar litere mici, cifre, punct, liniuță și underscore.</div>';
-    return;
-  }
-  if(password.length < 6){
-    result.innerHTML='<div style="color:var(--danger);font-size:13px">Parolă minim 6 caractere.</div>';
-    return;
-  }
+// Delogare forțată — invalidează sesiunea pe toate dispozitivele
+async function forceLogoutUser(username){
+  const u = QUICK_USERS.find(x=>x.username===username) || knownUsers.find(x=>x.username===username);
+  if(!u){ toast('Utilizator negăsit'); return; }
+  if(!confirm(`Forțează delogarea pentru ${u.name}?\n\nVa trebui să se reconecteze pe toate dispozitivele lui.`)) return;
+  // Marker în Firebase — la următoarea verificare, sesiunea se închide
+  // (folosim un câmp în doc-ul echipei)
+  if(!window._forcedLogouts) window._forcedLogouts = {};
+  const forcedLogouts = (await getCurrentForcedLogouts()) || {};
+  forcedLogouts[username] = new Date().toISOString();
+  await saveForcedLogouts(forcedLogouts);
+  toast(`Delogare forțată pentru ${u.name} — efect în max 5 secunde`);
+}
 
-  result.innerHTML='<div style="color:var(--text2);font-size:13px">Se creează contul...</div>';
+async function getCurrentForcedLogouts(){
+  return window._currentForcedLogouts || {};
+}
 
-  try{
-    const email = username + FAKE_DOMAIN;
-    const cred = await window.fbHelpers.signUp(window.fbAuth, email, password);
-    await window.fbHelpers.updateProfile(cred.user, { displayName });
-
-    // Adaug în knownUsers înainte să se deconecteze
-    knownUsers.push({
-      username,
-      name: displayName,
-      firstSeen: new Date().toISOString(),
-      lastSeen: new Date().toISOString(),
-      createdBy: currentUser.username
-    });
-
-    result.innerHTML=`<div style="color:var(--accent);font-size:13px;background:rgba(200,245,66,.06);border:1px solid rgba(200,245,66,.22);border-radius:var(--radius);padding:12px">
-      ✓ Cont creat: <strong>${username}</strong> (${displayName})<br>
-      <span style="color:var(--text2)">Spune-i parola: <strong style="font-family:var(--mono);color:var(--text)">${password}</strong></span><br>
-      <span style="color:var(--text3);font-size:12px">Vei fi delogat automat în 3 secunde — apoi te re-loghezi cu contul tău.</span>
-    </div>`;
-
-    // Trebuie să salvăm knownUsers înainte de delogare (Firebase semnează automat in noul user creat)
-    await window.fbHelpers.setDoc(window.fbDocRef, {
-      masini, soferi,
-      log: log.map(l=>({...l, preluat: l.preluat?l.preluat.toISOString():null, restituit: l.restituit?l.restituit.toISOString():null})),
-      carIdCtr, logIdCtr, admins, knownUsers,
-      lastModifiedBy: currentUser.name,
-      lastModifiedAt: new Date().toISOString()
-    });
-
-    document.getElementById('admin-new-username').value='';
-    document.getElementById('admin-new-password').value='';
-    document.getElementById('admin-new-displayname').value='';
-
-    // Delogare după 3s ca să vedem mesajul
-    setTimeout(async ()=>{
-      await window.fbHelpers.signOut(window.fbAuth);
-      location.reload();
-    }, 3000);
-
-  } catch(e){
-    let msg=e.message||'Eroare necunoscută';
-    if(e.code==='auth/email-already-in-use') msg='Username deja folosit.';
-    else if(e.code==='auth/weak-password') msg='Parolă prea slabă.';
-    else if(e.code==='auth/invalid-email') msg='Username invalid.';
-    result.innerHTML=`<div style="color:var(--danger);font-size:13px">Eroare: ${msg}</div>`;
-  }
+async function saveForcedLogouts(forcedLogouts){
+  window._currentForcedLogouts = forcedLogouts;
+  await window.fbHelpers.setDoc(window.fbDocRef, {
+    masini, soferi,
+    log: log.map(l=>({...l, preluat: l.preluat?l.preluat.toISOString():null, restituit: l.restituit?l.restituit.toISOString():null})),
+    carIdCtr, logIdCtr, admins, knownUsers,
+    forcedLogouts,
+    lastModifiedBy: currentUser?.name || 'admin',
+    lastModifiedAt: new Date().toISOString()
+  });
 }
 
 function renderAdminUsers(){
@@ -1440,6 +1545,7 @@ function adminSaveAdmins(){
 }
 
 function renderAdmin(){
+  renderQuickUsers();
   renderAdminUsers();
   document.getElementById('admin-list-input').value = admins.join(', ');
 }
@@ -1491,9 +1597,12 @@ window.exportData=exportData;
 window.doAuth=doAuth;
 window.doLogout=doLogout;
 window.showUserMenu=showUserMenu;
-window.adminCreateUser=adminCreateUser;
 window.adminSaveAdmins=adminSaveAdmins;
 window.adminDeleteUser=adminDeleteUser;
+window.quickLogin=quickLogin;
+window.showAdminLogin=showAdminLogin;
+window.hideAdminLogin=hideAdminLogin;
+window.forceLogoutUser=forceLogoutUser;
 
 // Enter key pentru login
 document.getElementById('login-password').addEventListener('keypress',e=>{if(e.key==='Enter')doAuth();});
