@@ -283,7 +283,8 @@ body.user-mode .log-mobile-card {
     <div class="header-stats">
       <div class="hstat"><div class="hstat-val" id="stat-total">0</div><div class="hstat-label">Total</div></div>
       <div class="hstat"><div class="hstat-val" id="stat-disp">0</div><div class="hstat-label">Depozit</div></div>
-      <div class="hstat"><div class="hstat-val" id="stat-out">0</div><div class="hstat-label">Teren</div></div>
+      <div class="hstat"><div class="hstat-val" id="stat-eisel">0</div><div class="hstat-label">Eiselfing</div></div>
+      <div class="hstat"><div class="hstat-val" id="stat-ruhst">0</div><div class="hstat-label">Ruhstorf</div></div>
     </div>
     <div class="user-chip" onclick="showUserMenu()">
       <div class="sync-indicator" id="sync-dot"></div>
@@ -314,7 +315,8 @@ body.user-mode .log-mobile-card {
   <button class="filter-btn" data-filter="T6" onclick="setFilter('T6')">T6</button>
   <button class="filter-btn" data-filter="ELEKTRO" onclick="setFilter('ELEKTRO')">Elektro</button>
   <button class="filter-btn" data-filter="DEPOZIT" onclick="setFilter('DEPOZIT')" style="margin-left:6px">Depozit</button>
-  <button class="filter-btn" data-filter="OUT" onclick="setFilter('OUT')">Teren</button>
+  <button class="filter-btn" data-filter="EISELFING_LOC" onclick="setFilter('EISELFING_LOC')">Eiselfing</button>
+  <button class="filter-btn" data-filter="RUHSTORF_LOC" onclick="setFilter('RUHSTORF_LOC')">Ruhstorf</button>
   <button class="filter-btn" data-filter="PAKETSHOP" onclick="setFilter('PAKETSHOP')">Paketshop</button>
 </div>
 
@@ -384,7 +386,12 @@ body.user-mode .log-mobile-card {
     <div class="settings-section">
       <div class="settings-title">Adaugă șofer</div>
       <div class="settings-row">
-        <input id="new-sofer-input" placeholder="nume șofer">
+        <input id="new-sofer-input" placeholder="nume șofer" style="flex:2">
+        <select id="new-sofer-loc" style="flex:1;min-width:130px">
+          <option value="">— fără locație —</option>
+          <option value="Eiselfing">Eiselfing</option>
+          <option value="Ruhstorf">Ruhstorf</option>
+        </select>
         <button class="btn btn-primary" onclick="addSofer()" style="flex:none;width:auto">Adaugă</button>
       </div>
       <div id="soferi-list-manage" style="margin-top:14px"></div>
@@ -659,16 +666,52 @@ const initials=n=>{const p=(n||'').split(' ').filter(Boolean);return p.length>=2
 const avc=n=>{const c=['#c8f542','#4a9eff','#ff9f4a','#4affa0','#ff7ac6','#a78bfa','#fbbf24'];let h=0;for(const ch of n||'')h=(h*31+ch.charCodeAt(0))%c.length;return c[h];};
 function fmtDt(d){if(!d)return'-';const p=n=>String(n).padStart(2,'0');return`${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;}
 function fmtDtInput(d){if(!d)return'';const p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+// Returnează locația unei mașini bazată pe șoferul curent
+// Returnează: 'Eiselfing', 'Ruhstorf', sau '' (necunoscut)
+function getMasinaLocation(m){
+  if(!m) return '';
+  const sofer = m.sofer || '';
+  // Categoria specială EISELFING = sediul Eiselfing
+  if(sofer.toUpperCase() === 'EISELFING') return 'Eiselfing';
+  // Caut șoferul în listă
+  const s = soferi.find(x => x.name === sofer);
+  if(s) return s.location || '';
+  return '';
+}
+
+// Helper pentru a obține lista de nume sortate (folosit în multe locuri)
+function getSoferiNames(){
+  return soferi.map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
+}
+
 function buildOpts(sel){
-  return `<option value="DEPOZIT"${sel==='DEPOZIT'?' selected':''}>DEPOZIT</option>`+
+  let html = `<option value="DEPOZIT"${sel==='DEPOZIT'?' selected':''}>DEPOZIT</option>`+
     `<option value="POLLING"${sel==='POLLING'?' selected':''}>POLLING</option>`+
     `<option value="EISELFING"${sel==='EISELFING'?' selected':''}>EISELFING</option>`+
     `<option value="AVP"${sel==='AVP'?' selected':''}>AVP</option>`+
     `<option value="PAKETSHOP"${sel==='PAKETSHOP'?' selected':''}>PAKETSHOP</option>`+
     `<option value="STRICATA"${sel==='STRICATA'?' selected':''}>🔧 STRICATĂ</option>`+
-    `<option value=""${(!sel||sel==='')?' selected':''}>— nealocat —</option>`+
-    `<option disabled>──────────</option>`+
-    soferi.slice().sort().map(s=>`<option value="${s}"${s===sel?' selected':''}>${s}</option>`).join('');
+    `<option value=""${(!sel||sel==='')?' selected':''}>— nealocat —</option>`;
+
+  // Grupez șoferii pe locație
+  const soferiList = soferi.map(s => typeof s === 'string' ? {name:s, location:''} : s);
+  const eisel = soferiList.filter(s=>s.location==='Eiselfing').sort((a,b)=>a.name.localeCompare(b.name));
+  const ruhst = soferiList.filter(s=>s.location==='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
+  const other = soferiList.filter(s=>s.location!=='Eiselfing' && s.location!=='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
+
+  if(eisel.length){
+    html += `<option disabled>── EISELFING ──</option>`;
+    html += eisel.map(s=>`<option value="${s.name}"${s.name===sel?' selected':''}>${s.name}</option>`).join('');
+  }
+  if(ruhst.length){
+    html += `<option disabled>── RUHSTORF ──</option>`;
+    html += ruhst.map(s=>`<option value="${s.name}"${s.name===sel?' selected':''}>${s.name}</option>`).join('');
+  }
+  if(other.length){
+    html += `<option disabled>── ALȚII ──</option>`;
+    html += other.map(s=>`<option value="${s.name}"${s.name===sel?' selected':''}>${s.name}</option>`).join('');
+  }
+  return html;
 }
 
 function toast(msg){
@@ -838,7 +881,81 @@ function startSync(){
 
 function hydrateFromCloud(d){
   masini = (d.masini||[]).map(m=>({...m}));
-  soferi = (d.soferi||[]).slice();
+
+  // Migrare șoferi: dacă sunt string-uri (format vechi), convertesc la obiecte
+  // Lista nouă completă cu locații
+  const NEW_SOFERI_LIST = [
+    {name:'Aremia Aurel', location:'Eiselfing'},
+    {name:'Asmarandei Andrei', location:'Eiselfing'},
+    {name:'Bruma Alexandru', location:'Eiselfing'},
+    {name:'Gruia Raul', location:'Eiselfing'},
+    {name:'Movila Andrei', location:'Eiselfing'},
+    {name:'Pana Alexandru', location:'Eiselfing'},
+    {name:'Paul Petre', location:'Eiselfing'},
+    {name:'Rus Denisa', location:'Eiselfing'},
+    {name:'Stranici Cristian', location:'Eiselfing'},
+    {name:'Tufisi Rares', location:'Eiselfing'},
+    {name:'Vancea Cosmin', location:'Eiselfing'},
+    {name:'Badea Madalin', location:'Ruhstorf'},
+    {name:'Bainoczi Razvan', location:'Ruhstorf'},
+    {name:'Bejenaru Ioan', location:'Ruhstorf'},
+    {name:'Birliba Mihaela', location:'Ruhstorf'},
+    {name:'Bisoc Ionut', location:'Ruhstorf'},
+    {name:'Bitiusca Gabriel', location:'Ruhstorf'},
+    {name:'Buciu Petre', location:'Ruhstorf'},
+    {name:'Burlacu Andrei', location:'Ruhstorf'},
+    {name:'Cazan Ionut', location:'Ruhstorf'},
+    {name:'Ciobotaru Adrian', location:'Ruhstorf'},
+    {name:'Ciobotaru Iulian', location:'Ruhstorf'},
+    {name:'Ciobotaru Larisa', location:'Ruhstorf'},
+    {name:'Crainic Adrian', location:'Ruhstorf'},
+    {name:'Deleu Daniel', location:'Ruhstorf'},
+    {name:'Dobinda Dumitru', location:'Ruhstorf'},
+    {name:'Dutescu Daniel', location:'Ruhstorf'},
+    {name:'Farkas Rudolf', location:'Ruhstorf'},
+    {name:'Feraru Razvan', location:'Ruhstorf'},
+    {name:'Ferent Simon', location:'Ruhstorf'},
+    {name:'Ghebu Andreas', location:'Ruhstorf'},
+    {name:'Iacob Mihai', location:'Ruhstorf'},
+    {name:'Macarie Paul', location:'Ruhstorf'},
+    {name:'Maies Antonio', location:'Ruhstorf'},
+    {name:'Margau Rafael', location:'Ruhstorf'},
+    {name:'Maricosu Adelin', location:'Ruhstorf'},
+    {name:'Mereacre Mihail', location:'Ruhstorf'},
+    {name:'Mihai Adrian', location:'Ruhstorf'},
+    {name:'Moise Alexandru', location:'Ruhstorf'},
+    {name:'Morosanu Lucian', location:'Ruhstorf'},
+    {name:'Musteata Ion', location:'Ruhstorf'},
+    {name:'Plesca Mihaita', location:'Ruhstorf'},
+    {name:'Pop Marcel', location:'Ruhstorf'},
+    {name:'Raghinaru Marian', location:'Ruhstorf'},
+    {name:'Rudareanu Vladut', location:'Ruhstorf'},
+    {name:'Serban Florin', location:'Ruhstorf'},
+    {name:'Sparios Eduard', location:'Ruhstorf'},
+    {name:'Stan Ionel', location:'Ruhstorf'},
+    {name:'Stanciu Dumitru', location:'Ruhstorf'},
+    {name:'Stinga Valeriu', location:'Ruhstorf'},
+    {name:'Tuca Valentin', location:'Ruhstorf'},
+    {name:'Zestrea Mihail', location:'Ruhstorf'}
+  ];
+
+  const rawSoferi = d.soferi || [];
+  // Detectez dacă e format vechi (string) sau nou (obiect)
+  const isOldFormat = rawSoferi.length > 0 && typeof rawSoferi[0] === 'string';
+
+  if(isOldFormat || rawSoferi.length === 0){
+    // Migrare: înlocuiesc cu lista nouă completă
+    soferi = NEW_SOFERI_LIST.map(s=>({...s}));
+    // Și salvez automat ca să nu mai facem migrarea data viitoare
+    setTimeout(()=>saveToCloud(), 1500);
+  } else {
+    // Format nou — folosesc ce vine din cloud, dar mă asigur că au structura corectă
+    soferi = rawSoferi.map(s=>{
+      if(typeof s === 'string') return {name:s, location:''};
+      return {name:s.name||'', location:s.location||''};
+    });
+  }
+
   log = (d.log||[]).map(l=>({
     ...l,
     preluat: l.preluat ? new Date(l.preluat) : null,
@@ -855,7 +972,6 @@ function hydrateFromCloud(d){
     const forcedAt = new Date(window._currentForcedLogouts[currentUser.username]);
     const sessionStart = window._sessionStart || new Date(0);
     if(forcedAt > sessionStart){
-      // Sesiunea e mai veche decât forced logout — delogăm
       console.log('Forced logout detected, signing out');
       window.fbHelpers.signOut(window.fbAuth).then(()=>location.reload());
       return;
@@ -919,9 +1035,9 @@ function seedInitialData(){
   // Date inițiale din fișierul original — se urcă în Firebase la primul start
   masini=[
     {id:1,tip:'CRAFTER',nr:'MU IE 801',sofer:'Mihai Adrian'},
-    {id:2,tip:'CRAFTER',nr:'MU IE 802',sofer:'Dobanda Dumitru'},
+    {id:2,tip:'CRAFTER',nr:'MU IE 802',sofer:'Dobinda Dumitru'},
     {id:3,tip:'CRAFTER',nr:'MU IE 803',sofer:'Bisoc Ionut'},
-    {id:4,tip:'CRAFTER',nr:'MU IE 804',sofer:'Musteata Ioan'},
+    {id:4,tip:'CRAFTER',nr:'MU IE 804',sofer:'Musteata Ion'},
     {id:5,tip:'CRAFTER',nr:'MU IE 805',sofer:'Zestrea Mihail'},
     {id:6,tip:'CRAFTER',nr:'MU IE 806',sofer:'Pop Marcel'},
     {id:7,tip:'CRAFTER',nr:'MU IE 807',sofer:'Iacob Mihai'},
@@ -954,7 +1070,7 @@ function seedInitialData(){
     {id:34,tip:'CRAFTER',nr:'MU IE 834',sofer:'Stan Ionel'},
     {id:35,tip:'CRAFTER',nr:'MU IE 835',sofer:'Moise Alexandru'},
     {id:36,tip:'CRAFTER',nr:'MU IE 836',sofer:'DEPOZIT'},
-    {id:37,tip:'CRAFTER',nr:'MU IE 837',sofer:'Plesca Costel'},
+    {id:37,tip:'CRAFTER',nr:'MU IE 837',sofer:'Plesca Mihaita'},
     {id:38,tip:'CRAFTER',nr:'MU IE 838',sofer:'Rudareanu Vladut'},
     {id:39,tip:'T6',nr:'MU IE 839',sofer:'Bejenaru Ioan'},
     {id:40,tip:'CRAFTER',nr:'MU IE 840',sofer:'Stinga Valeriu'},
@@ -965,7 +1081,7 @@ function seedInitialData(){
     {id:45,tip:'CRAFTER',nr:'MU IE 845',sofer:'AVP'},
     {id:46,tip:'T6',nr:'MU IE 846',sofer:'Farkas Rudolf'},
     {id:47,tip:'T6',nr:'MU IE 847',sofer:'Burlacu Andrei'},
-    {id:48,tip:'T6',nr:'MU IE 848',sofer:'Simon Ferent'},
+    {id:48,tip:'T6',nr:'MU IE 848',sofer:'Ferent Simon'},
     {id:49,tip:'T6',nr:'MU IE 849',sofer:'Stanciu Dumitru'},
     {id:50,tip:'T6',nr:'MU IE 850',sofer:'Ciobotaru Iulian'},
     {id:51,tip:'T6',nr:'MU IE 851',sofer:'Birliba Mihaela'},
@@ -990,7 +1106,62 @@ function seedInitialData(){
     {id:70,tip:'ELEKTRO',nr:'MU IE 874 E',sofer:'Dutescu Daniel'},
     {id:71,tip:'CRAFTER',nr:'AÖ VW 54',sofer:'Mihai Adrian'}
   ];
-  soferi=['Mihai Adrian','Dobanda Dumitru','Bisoc Ionut','Musteata Ioan','Zestrea Mihail','Pop Marcel','Iacob Mihai','Buciu Petre','Serban Florin','Raghinaru Marian','Bitiusca Gabriel','Maies Antonio','Margau Rafael','Cazan Ionut','Ciobotaru Adrian','Ciobotaru Larisa','Crainic Adrian','Sparios Eduard','Feraru Razvan','Dutescu Daniel','Stan Ionel','Moise Alexandru','Plesca Costel','Rudareanu Vladut','Bejenaru Ioan','Stinga Valeriu','Bainoczi Razvan','Ghebu Andreas','Farkas Rudolf','Burlacu Andrei','Simon Ferent','Stanciu Dumitru','Ciobotaru Iulian','Birliba Mihaela','Macarie Paul','Tuca Valentin','Badea Madalin'];
+  soferi=[
+    // Eiselfing (11)
+    {name:'Aremia Aurel', location:'Eiselfing'},
+    {name:'Asmarandei Andrei', location:'Eiselfing'},
+    {name:'Bruma Alexandru', location:'Eiselfing'},
+    {name:'Gruia Raul', location:'Eiselfing'},
+    {name:'Movila Andrei', location:'Eiselfing'},
+    {name:'Pana Alexandru', location:'Eiselfing'},
+    {name:'Paul Petre', location:'Eiselfing'},
+    {name:'Rus Denisa', location:'Eiselfing'},
+    {name:'Stranici Cristian', location:'Eiselfing'},
+    {name:'Tufisi Rares', location:'Eiselfing'},
+    {name:'Vancea Cosmin', location:'Eiselfing'},
+    // Ruhstorf (41)
+    {name:'Badea Madalin', location:'Ruhstorf'},
+    {name:'Bainoczi Razvan', location:'Ruhstorf'},
+    {name:'Bejenaru Ioan', location:'Ruhstorf'},
+    {name:'Birliba Mihaela', location:'Ruhstorf'},
+    {name:'Bisoc Ionut', location:'Ruhstorf'},
+    {name:'Bitiusca Gabriel', location:'Ruhstorf'},
+    {name:'Buciu Petre', location:'Ruhstorf'},
+    {name:'Burlacu Andrei', location:'Ruhstorf'},
+    {name:'Cazan Ionut', location:'Ruhstorf'},
+    {name:'Ciobotaru Adrian', location:'Ruhstorf'},
+    {name:'Ciobotaru Iulian', location:'Ruhstorf'},
+    {name:'Ciobotaru Larisa', location:'Ruhstorf'},
+    {name:'Crainic Adrian', location:'Ruhstorf'},
+    {name:'Deleu Daniel', location:'Ruhstorf'},
+    {name:'Dobinda Dumitru', location:'Ruhstorf'},
+    {name:'Dutescu Daniel', location:'Ruhstorf'},
+    {name:'Farkas Rudolf', location:'Ruhstorf'},
+    {name:'Feraru Razvan', location:'Ruhstorf'},
+    {name:'Ferent Simon', location:'Ruhstorf'},
+    {name:'Ghebu Andreas', location:'Ruhstorf'},
+    {name:'Iacob Mihai', location:'Ruhstorf'},
+    {name:'Macarie Paul', location:'Ruhstorf'},
+    {name:'Maies Antonio', location:'Ruhstorf'},
+    {name:'Margau Rafael', location:'Ruhstorf'},
+    {name:'Maricosu Adelin', location:'Ruhstorf'},
+    {name:'Mereacre Mihail', location:'Ruhstorf'},
+    {name:'Mihai Adrian', location:'Ruhstorf'},
+    {name:'Moise Alexandru', location:'Ruhstorf'},
+    {name:'Morosanu Lucian', location:'Ruhstorf'},
+    {name:'Musteata Ion', location:'Ruhstorf'},
+    {name:'Plesca Mihaita', location:'Ruhstorf'},
+    {name:'Pop Marcel', location:'Ruhstorf'},
+    {name:'Raghinaru Marian', location:'Ruhstorf'},
+    {name:'Rudareanu Vladut', location:'Ruhstorf'},
+    {name:'Serban Florin', location:'Ruhstorf'},
+    {name:'Sparios Eduard', location:'Ruhstorf'},
+    {name:'Stan Ionel', location:'Ruhstorf'},
+    {name:'Stanciu Dumitru', location:'Ruhstorf'},
+    {name:'Stinga Valeriu', location:'Ruhstorf'},
+    {name:'Tuca Valentin', location:'Ruhstorf'},
+    {name:'Zestrea Mihail', location:'Ruhstorf'}
+  ];
   log=[];
   carIdCtr=200;
   logIdCtr=1;
@@ -1035,7 +1206,8 @@ function showUserMenu(){
 function updateStats(){
   document.getElementById('stat-total').textContent=masini.length;
   document.getElementById('stat-disp').textContent=masini.filter(m=>sk(m.sofer)==='DEPOZIT').length;
-  document.getElementById('stat-out').textContent=masini.filter(m=>sk(m.sofer)==='OUT').length;
+  document.getElementById('stat-eisel').textContent=masini.filter(m=>getMasinaLocation(m)==='Eiselfing').length;
+  document.getElementById('stat-ruhst').textContent=masini.filter(m=>getMasinaLocation(m)==='Ruhstorf').length;
 }
 
 // ── CARDS ────────────────────────────────────────────────────────────
@@ -1056,6 +1228,12 @@ function renderCards(){
       if(sk(m.sofer)!=='OUT') return false;
     } else if(currentFilter==='PAKETSHOP'){
       if(sk(m.sofer)!=='PAKETSHOP') return false;
+    } else if(currentFilter==='EISELFING_LOC'){
+      // Eiselfing = mașini la sediul EISELFING SAU la șoferi marcați Eiselfing
+      if(getMasinaLocation(m) !== 'Eiselfing') return false;
+    } else if(currentFilter==='RUHSTORF_LOC'){
+      // Ruhstorf = mașini la șoferi marcați Ruhstorf
+      if(getMasinaLocation(m) !== 'Ruhstorf') return false;
     } else {
       if(m.tip!==currentFilter) return false;
     }
@@ -1071,11 +1249,18 @@ function renderCards(){
     const tip=m.tip||'unknown';
     const accentColor = tip==='CRAFTER' ? 'var(--crafter)' : tip==='T6' ? 'var(--t6)' : tip==='ELEKTRO' ? 'var(--elektro)' : '#444';
     const dotColor = sc(m.sofer);
+    const loc = getMasinaLocation(m);
+    const locBadge = loc==='Eiselfing'
+      ? `<span style="font-family:var(--mono);font-size:9px;font-weight:500;padding:3px 6px;border-radius:3px;background:rgba(167,139,250,.12);color:#a78bfa;letter-spacing:.04em">EI</span>`
+      : loc==='Ruhstorf'
+      ? `<span style="font-family:var(--mono);font-size:9px;font-weight:500;padding:3px 6px;border-radius:3px;background:rgba(74,255,160,.12);color:#4affa0;letter-spacing:.04em">RU</span>`
+      : '';
     return `<div class="car-card">
       <div class="card-accent" style="background:${accentColor}"></div>
       <div class="card-top">
         <div style="display:flex;align-items:center;gap:8px">
           <span class="tip-badge tip-${tip}">${tip}</span>
+          ${locBadge}
           <div class="status-dot" style="background:${dotColor};width:7px;height:7px;border-radius:50%"></div>
         </div>
         <div class="card-actions">
@@ -1330,13 +1515,36 @@ function renderSoferi(){
   const am={};masini.filter(m=>m.sofer&&!SPECIALS.includes(m.sofer)&&m.sofer!=='').forEach(m=>{am[m.sofer]=m;});
   const sec=document.getElementById('soferi-section');
   if(soferi.length===0){
-    sec.innerHTML='<div class="empty-state">Niciun șofer. Adaugă din tab-ul Setări.</div>';
+    sec.innerHTML='<div class="empty-state">Niciun șofer.</div>';
     return;
   }
-  sec.innerHTML=soferi.slice().sort().map(s=>{
-    const m=am[s];const c=avc(s);
-    return`<div class="sofer-card"><div class="sofer-avatar" style="background:${c}33;color:${c}">${initials(s)}</div><div><div style="font-size:14px;font-weight:500">${s}</div>${m?`<div style="font-family:var(--mono);font-size:12px;color:var(--text2);margin-top:3px">${m.nr}</div><div style="font-size:11px;margin-top:3px;color:${m.tip==='T6'?'var(--t6)':m.tip==='CRAFTER'?'var(--crafter)':'var(--elektro)'}">${m.tip}</div>`:`<div style="font-size:12px;color:var(--text3);margin-top:3px">— nealocat —</div>`}</div></div>`;
-  }).join('');
+  // Sortez și grupez pe locație
+  const soferiList = soferi.map(s => typeof s === 'string' ? {name:s, location:''} : s);
+  const eisel = soferiList.filter(s=>s.location==='Eiselfing').sort((a,b)=>a.name.localeCompare(b.name));
+  const ruhst = soferiList.filter(s=>s.location==='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
+  const other = soferiList.filter(s=>s.location!=='Eiselfing' && s.location!=='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
+
+  function buildCard(s){
+    const m=am[s.name];const c=avc(s.name);
+    const locColor = s.location==='Eiselfing' ? '#a78bfa' : s.location==='Ruhstorf' ? '#4affa0' : 'var(--text3)';
+    const locBadge = s.location ? `<span style="font-family:var(--mono);font-size:9px;font-weight:500;padding:2px 6px;border-radius:3px;background:${locColor}22;color:${locColor};margin-top:4px;display:inline-block">${s.location.toUpperCase()}</span>` : '';
+    return `<div class="sofer-card"><div class="sofer-avatar" style="background:${c}33;color:${c}">${initials(s.name)}</div><div><div style="font-size:14px;font-weight:500">${s.name}</div>${locBadge}${m?`<div style="font-family:var(--mono);font-size:12px;color:var(--text2);margin-top:3px">${m.nr}</div><div style="font-size:11px;margin-top:3px;color:${m.tip==='T6'?'var(--t6)':m.tip==='CRAFTER'?'var(--crafter)':'var(--elektro)'}">${m.tip}</div>`:`<div style="font-size:12px;color:var(--text3);margin-top:3px">— nealocat —</div>`}</div></div>`;
+  }
+
+  let html = '';
+  if(eisel.length){
+    html += `<div style="grid-column:1/-1;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#a78bfa;font-weight:500;margin-top:8px;margin-bottom:4px">Eiselfing (${eisel.length})</div>`;
+    html += eisel.map(buildCard).join('');
+  }
+  if(ruhst.length){
+    html += `<div style="grid-column:1/-1;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#4affa0;font-weight:500;margin-top:14px;margin-bottom:4px">Ruhstorf (${ruhst.length})</div>`;
+    html += ruhst.map(buildCard).join('');
+  }
+  if(other.length){
+    html += `<div style="grid-column:1/-1;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:500;margin-top:14px;margin-bottom:4px">Alți șoferi (${other.length})</div>`;
+    html += other.map(buildCard).join('');
+  }
+  sec.innerHTML=html;
 }
 
 // ── SETARI ───────────────────────────────────────────────────────────
@@ -1350,9 +1558,39 @@ function renderSetari(){
     list.innerHTML='<div style="font-size:12px;color:var(--text3)">Niciun șofer adăugat.</div>';
     return;
   }
+  const soferiList = soferi.map(s => typeof s === 'string' ? {name:s, location:''} : s);
   list.innerHTML=
-    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">`+
-    soferi.slice().sort().map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:13px"><span>${s}</span><button onclick="removeSofer(${JSON.stringify(s)})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1">×</button></div>`).join('')+'</div>';
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">`+
+    soferiList.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>{
+      const locColor = s.location==='Eiselfing' ? '#a78bfa' : s.location==='Ruhstorf' ? '#4affa0' : 'var(--text3)';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:13px;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div>${s.name}</div>
+          <select onchange="changeSoferLocation('${s.name.replace(/'/g,"\\'")}', this.value)" style="margin-top:5px;background:transparent;border:none;color:${locColor};font-size:11px;font-family:var(--mono);font-weight:500;padding:0;outline:none;cursor:pointer">
+            <option value="" ${!s.location?'selected':''}>— fără locație —</option>
+            <option value="Eiselfing" ${s.location==='Eiselfing'?'selected':''}>Eiselfing</option>
+            <option value="Ruhstorf" ${s.location==='Ruhstorf'?'selected':''}>Ruhstorf</option>
+          </select>
+        </div>
+        <button onclick="removeSofer(${JSON.stringify(s.name)})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">×</button>
+      </div>`;
+    }).join('')+'</div>';
+}
+
+// Schimbă locația unui șofer
+function changeSoferLocation(name, newLocation){
+  const s = soferi.find(x => (typeof x === 'string' ? x : x.name) === name);
+  if(!s) return;
+  if(typeof s === 'string'){
+    // Conversie din vechiul format
+    const idx = soferi.indexOf(s);
+    soferi[idx] = {name: s, location: newLocation};
+  } else {
+    s.location = newLocation;
+  }
+  saveToCloud();
+  renderAll();
+  toast(`Locație actualizată pentru ${name}`);
 }
 
 // Ștergere completă log — doar pentru admin, cu dublă confirmare
@@ -1379,17 +1617,23 @@ function adminDeleteAllLogs(){
 }
 function addSofer(){
   const inp=document.getElementById('new-sofer-input');
+  const locSel=document.getElementById('new-sofer-loc');
   const n=inp.value.trim();
-  if(!n||soferi.includes(n))return;
-  soferi.push(n);
+  const loc = locSel ? locSel.value : '';
+  if(!n) return;
+  // Verifică duplicate (în noul format)
+  const existing = soferi.find(s => (typeof s === 'string' ? s : s.name) === n);
+  if(existing) { toast('Șofer deja existent'); return; }
+  soferi.push({name: n, location: loc});
   inp.value='';
+  if(locSel) locSel.value='';
   saveToCloud();
   renderAll();
   toast('Șofer adăugat');
 }
 function removeSofer(n){
   if(!confirm('Ștergi șoferul "'+n+'"?'))return;
-  soferi=soferi.filter(s=>s!==n);
+  soferi=soferi.filter(s => (typeof s === 'string' ? s : s.name) !== n);
   saveToCloud();
   renderAll();
   toast('Șofer șters');
@@ -1640,6 +1884,7 @@ window.closeModalAddLog=closeModalAddLog;
 window.cautaAmenda=cautaAmenda;
 window.addSofer=addSofer;
 window.removeSofer=removeSofer;
+window.changeSoferLocation=changeSoferLocation;
 window.addMasina=addMasina;
 window.exportData=exportData;
 window.doAuth=doAuth;
