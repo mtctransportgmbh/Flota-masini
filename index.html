@@ -47,8 +47,18 @@ button{font-family:inherit;}
 .quick-user-avatar[data-name="Cristi"]{background:rgba(74,158,255,.15);color:#4a9eff;}
 .quick-user-avatar[data-name="Mihaela"]{background:rgba(255,122,198,.15);color:#ff7ac6;}
 .quick-user-avatar[data-name="Raluca"]{background:rgba(74,255,160,.15);color:#4affa0;}
+.quick-user-avatar[data-name="Mihai"]{background:rgba(167,139,250,.15);color:#a78bfa;}
+.quick-user-avatar[data-name="Ion"]{background:rgba(251,191,36,.15);color:#fbbf24;}
+.quick-user-avatar[data-name="Vasile"]{background:rgba(74,255,160,.15);color:#4affa0;}
 .admin-toggle-btn{margin-top:8px;padding:11px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);color:var(--text2);font-size:13px;cursor:pointer;font-family:inherit;}
 .admin-toggle-btn:active,.admin-toggle-btn:hover{color:var(--text);border-color:var(--border2);}
+
+/* Mode select buttons */
+.mode-btn{display:flex;align-items:center;gap:14px;width:100%;padding:18px 20px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:inherit;cursor:pointer;transition:all .15s;}
+.mode-btn:active,.mode-btn:hover{background:var(--surface);border-color:var(--accent);}
+.mode-btn-icon{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.mode-back-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:6px 0;font-family:inherit;display:flex;align-items:center;gap:4px;margin-bottom:14px;}
+.mode-back-btn:hover{color:var(--text2);}
 
 /* ── HEADER ────────────────────────────────────────── */
 .header{border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:100;gap:12px;}
@@ -227,27 +237,42 @@ body.user-mode .log-mobile-card {
   <div style="font-size:13px;color:var(--text2);font-family:var(--mono)">se conectează...</div>
 </div>
 
+<!-- ── ECRAN SELECȚIE MODUL ──────────────────────────────────── -->
+<div id="mode-select" class="login-screen" style="display:none">
+  <div class="login-box" style="text-align:center">
+    <div class="login-logo" style="font-size:14px;margin-bottom:8px">MTC TRANSPORT</div>
+    <div class="login-title" style="margin-bottom:24px">Alege secțiunea</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <button class="mode-btn" onclick="selectMode('flota')">
+        <div class="mode-btn-icon" style="background:rgba(200,245,66,.12);color:var(--accent)">🚐</div>
+        <div style="text-align:left;flex:1">
+          <div style="font-size:16px;font-weight:500;color:var(--text)">Gestiune flotă</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">Mașini, șoferi, alocare</div>
+        </div>
+      </button>
+      <button class="mode-btn" onclick="selectMode('service')">
+        <div class="mode-btn-icon" style="background:rgba(255,159,74,.12);color:var(--t6)">🔧</div>
+        <div style="text-align:left;flex:1">
+          <div style="font-size:16px;font-weight:500;color:var(--text)">Service auto</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px">Reparații, istoric</div>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── LOGIN SCREEN ───────────────────────────────────────────── -->
 <div id="login-screen" class="login-screen" style="display:none">
   <div class="login-box">
+    <button class="mode-back-btn" onclick="backToModeSelect()">← Schimbă secțiunea</button>
     <div class="login-logo">MTC TRANSPORT</div>
-    <div class="login-title">Gestiune flotă mașini</div>
+    <div class="login-title" id="login-mode-title">Gestiune flotă mașini</div>
     <div id="login-error" class="login-error" style="display:none"></div>
 
     <!-- Selecție user prestabilit -->
     <div id="login-quick" style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
-      <button class="quick-user-btn" onclick="quickLogin('cristi','Cristi')">
-        <div class="quick-user-avatar" data-name="Cristi">C</div>
-        <span>Cristi</span>
-      </button>
-      <button class="quick-user-btn" onclick="quickLogin('mihaela','Mihaela')">
-        <div class="quick-user-avatar" data-name="Mihaela">M</div>
-        <span>Mihaela</span>
-      </button>
-      <button class="quick-user-btn" onclick="quickLogin('raluca','Raluca')">
-        <div class="quick-user-avatar" data-name="Raluca">R</div>
-        <span>Raluca</span>
-      </button>
+      <!-- Butoanele user se generează dinamic în funcție de modul -->
+      <div id="login-user-buttons"></div>
       <button class="admin-toggle-btn" onclick="showAdminLogin()">
         ⚙ Admin
       </button>
@@ -568,6 +593,167 @@ body.user-mode .log-mobile-card {
 
 </div>
 
+<!-- ── APLICAȚIA SERVICE ─────────────────────────────────────── -->
+<div id="app-service" style="display:none">
+
+<div class="header" style="border-bottom-color:rgba(255,159,74,.2)">
+  <div class="header-left">
+    <div class="logo" style="color:var(--t6)">FLOTA MTC TRANSPORT //</div>
+    <div class="header-title">Service auto 🔧</div>
+  </div>
+  <div class="header-right">
+    <div class="header-stats">
+      <div class="hstat"><div class="hstat-val" id="srv-stat-active" style="color:var(--t6)">0</div><div class="hstat-label">Active</div></div>
+      <div class="hstat"><div class="hstat-val" id="srv-stat-done" style="color:var(--accent)">0</div><div class="hstat-label">Finalizate</div></div>
+      <div class="hstat"><div class="hstat-val" id="srv-stat-cost" style="color:var(--text)">0</div><div class="hstat-label">Cost €</div></div>
+    </div>
+    <div class="user-chip" onclick="showSrvUserMenu()">
+      <div class="sync-indicator" id="srv-sync-dot"></div>
+      <div class="user-avatar" id="srv-user-avatar">?</div>
+      <span id="srv-user-name">—</span>
+    </div>
+  </div>
+</div>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="showSrvTab('active')">Reparații active</button>
+  <button class="tab-btn" onclick="showSrvTab('istoric')">Istoric</button>
+  <button class="tab-btn" onclick="showSrvTab('adauga')">+ Adaugă</button>
+  <button class="tab-btn" onclick="showSrvTab('masini')">Mașini</button>
+  <button class="tab-btn" id="srv-tab-btn-admin" onclick="showSrvTab('admin')" style="display:none">⚙ Admin</button>
+</div>
+
+<div class="main">
+  <!-- Tab Reparații active -->
+  <div id="srv-tab-active">
+    <div id="srv-active-section"></div>
+  </div>
+
+  <!-- Tab Istoric -->
+  <div id="srv-tab-istoric" style="display:none">
+    <div class="log-toolbar" style="margin-bottom:14px">
+      <input id="srv-istoric-search" placeholder="caută după nr. mașină sau descriere..." oninput="renderSrvIstoric()">
+    </div>
+    <div id="srv-istoric-section"></div>
+  </div>
+
+  <!-- Tab Adaugă reparație -->
+  <div id="srv-tab-adauga" style="display:none">
+    <div class="amenda-form">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px">Reparație nouă</div>
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Mașină</div>
+        <select id="srv-new-masina" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;outline:none"></select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Data intrare</div>
+          <input id="srv-new-data" type="date" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Kilometraj (km)</div>
+          <input id="srv-new-km" type="number" placeholder="0" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px;outline:none">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Ce s-a reparat</div>
+        <input id="srv-new-descriere" placeholder="ex: schimbat plăcuțe frână" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;outline:none">
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Cost (€)</div>
+        <input id="srv-new-cost" type="number" step="0.01" placeholder="0.00" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px;outline:none">
+      </div>
+
+      <div style="margin-bottom:18px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Observații (opțional)</div>
+        <textarea id="srv-new-obs" rows="3" placeholder="detalii suplimentare..." style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;outline:none;resize:vertical"></textarea>
+      </div>
+
+      <button class="btn btn-primary" onclick="srvAddReparatie()" style="width:auto;flex:none">Adaugă reparație</button>
+    </div>
+  </div>
+
+  <!-- Tab Mașini (lista pentru a vedea ce reparații are fiecare) -->
+  <div id="srv-tab-masini" style="display:none">
+    <div class="log-toolbar" style="margin-bottom:14px">
+      <input id="srv-masini-search" placeholder="caută după nr. mașină..." oninput="renderSrvMasini()">
+    </div>
+    <div id="srv-masini-section"></div>
+  </div>
+
+  <!-- Tab Admin Service -->
+  <div id="srv-tab-admin" style="display:none">
+    <div class="settings-section">
+      <div class="settings-title">Mod Service — Admin</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7">
+        Conectat ca: <strong style="color:var(--text)" id="srv-info-name">—</strong><br>
+        Total reparații: <strong style="color:var(--text)" id="srv-info-total">0</strong>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn" onclick="srvExport()" style="flex:none;width:auto">Export reparații (JSON)</button>
+        <button class="btn btn-danger" onclick="doLogout()" style="flex:none;width:auto">Ieși din cont</button>
+      </div>
+    </div>
+
+    <div class="settings-section" style="border-color:rgba(255,90,90,.3)">
+      <div class="settings-title" style="color:var(--danger)">⚠ Zonă periculoasă</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+        <strong style="color:var(--text)">Șterge toate reparațiile</strong> — elimină definitiv TOATE intrările (<span id="srv-rep-count">0</span>).<br>
+        <strong style="color:var(--danger)">Această acțiune NU poate fi anulată.</strong>
+      </div>
+      <button class="btn btn-danger" onclick="srvDeleteAll()" style="flex:none;width:auto">Șterge toate reparațiile</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editare reparație -->
+<div class="modal-overlay" id="srv-modal-edit">
+  <div class="modal">
+    <div class="modal-title">Editează reparație</div>
+    <div class="modal-sub" id="srv-edit-sub"></div>
+
+    <div class="modal-field">
+      <div class="modal-label">Status</div>
+      <select id="srv-edit-status">
+        <option value="active">🔧 În lucru</option>
+        <option value="done">✓ Finalizată</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Data</div>
+      <input id="srv-edit-data" type="date">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Kilometraj (km)</div>
+      <input id="srv-edit-km" type="number">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Descriere</div>
+      <input id="srv-edit-descriere">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Cost (€)</div>
+      <input id="srv-edit-cost" type="number" step="0.01">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Observații</div>
+      <textarea id="srv-edit-obs" rows="3" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:15px;padding:11px 12px;outline:none;width:100%;resize:vertical"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="srvDeleteRep()">Șterge</button>
+      <button class="btn" onclick="srvCloseEdit()">Anulează</button>
+      <button class="btn btn-primary" onclick="srvSaveEdit()">Salvează</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
 <div id="toast" class="toast"></div>
 
 <!-- ──────────────────────────────────────────────────────────── -->
@@ -643,6 +829,25 @@ let isSaving=false;
 let lastSnapshotData=null;
 let admins=[];           // username-uri cu rol de admin
 let knownUsers=[];       // utilizatori care s-au logat (pt. lista din admin)
+
+// Service mode
+let reparatii=[];        // {id, masinaNr, masinaTip, data, km, descriere, cost, obs, status, addedBy, addedAt}
+let repIdCtr=1;
+let editingRepId=null;
+let currentMode = null;  // 'flota' | 'service' | null (la mode select)
+
+// Useri prestabiliți pentru fiecare modul
+const QUICK_USERS_FLOTA = [
+  { username: 'cristi', name: 'Cristi' },
+  { username: 'mihaela', name: 'Mihaela' },
+  { username: 'raluca', name: 'Raluca' }
+];
+const QUICK_USERS_SERVICE = [
+  { username: 'cristi-srv', name: 'Cristi' },
+  { username: 'mihai-srv', name: 'Mihai' },
+  { username: 'ion-srv', name: 'Ion' },
+  { username: 'vasile-srv', name: 'Vasile' }
+];
 
 const SPECIALS=['DEPOZIT','POLLING','EISELFING','AVP','PAKETSHOP','STRICATA'];
 
@@ -726,11 +931,11 @@ function toast(msg){
 const FAKE_DOMAIN = '@flota.local';
 // Parola fixă pentru cei 3 useri prestabiliți (nu o știu, e folosită automat)
 const QUICK_USER_PASSWORD = 'mtc-flota-2026-quickuser';
-const QUICK_USERS = [
-  { username: 'cristi', name: 'Cristi' },
-  { username: 'mihaela', name: 'Mihaela' },
-  { username: 'raluca', name: 'Raluca' }
-];
+
+// Returnează lista de useri prestabiliți pentru modul-ul curent
+function getQuickUsersForMode(mode){
+  return mode === 'service' ? QUICK_USERS_SERVICE : QUICK_USERS_FLOTA;
+}
 
 function toFirebaseEmail(input){
   const s = (input||'').trim();
@@ -753,6 +958,39 @@ function hideAdminLogin(){
   document.getElementById('login-admin').style.display='none';
   document.getElementById('login-quick').style.display='';
   document.getElementById('login-error').style.display='none';
+}
+
+// Selectează modulul (flota sau service) și trece la login
+function selectMode(mode){
+  currentMode = mode;
+  try{ localStorage.setItem('mtc_selected_mode', mode); }catch(e){}
+  document.getElementById('mode-select').style.display='none';
+  document.getElementById('login-screen').style.display='';
+  // Setez titlul în funcție de modul
+  document.getElementById('login-mode-title').textContent =
+    mode === 'service' ? 'Service auto' : 'Gestiune flotă mașini';
+  // Renderez butoanele de useri pentru modul-ul ales
+  renderLoginUserButtons();
+  hideAdminLogin();
+}
+
+function backToModeSelect(){
+  currentMode = null;
+  try{ localStorage.removeItem('mtc_selected_mode'); }catch(e){}
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('mode-select').style.display='';
+}
+
+function renderLoginUserButtons(){
+  const container = document.getElementById('login-user-buttons');
+  if(!container) return;
+  const users = getQuickUsersForMode(currentMode);
+  container.innerHTML = users.map(u=>`
+    <button class="quick-user-btn" onclick="quickLogin('${u.username}','${u.name.replace(/'/g,"\\'")}')">
+      <div class="quick-user-avatar" data-name="${u.name}">${u.name[0]}</div>
+      <span>${u.name}</span>
+    </button>
+  `).join('');
 }
 
 // Login rapid pentru Cristi/Mihaela/Raluca — încearcă să se logheze, dacă userul nu există îl creează automat
@@ -832,17 +1070,60 @@ window.addEventListener('firebase-ready', ()=>{
         username:username,
         name:user.displayName||username
       };
+
+      // Determine modul-ul: dacă username se termină în -srv, e Service
+      // Dacă e admin (cu email real sau username admin), foloseste currentMode din UI
+      if(username.endsWith('-srv')){
+        currentMode = 'service';
+      } else if(QUICK_USERS_FLOTA.find(u=>u.username===username)){
+        currentMode = 'flota';
+      } else {
+        // Admin — păstrează ce a ales înainte de login (sau implicit flota)
+        if(!currentMode){
+          try{ currentMode = localStorage.getItem('mtc_selected_mode') || 'flota'; }catch(e){ currentMode = 'flota'; }
+        }
+      }
+
       document.getElementById('login-screen').style.display='none';
-      document.getElementById('user-name').textContent=currentUser.name;
-      document.getElementById('user-avatar').textContent=initials(currentUser.name);
-      document.getElementById('user-avatar').style.background=avc(currentUser.name)+'33';
-      document.getElementById('user-avatar').style.color=avc(currentUser.name);
-      document.getElementById('info-email').textContent=currentUser.username + (user.email.includes(FAKE_DOMAIN)?'':' ('+user.email+')');
+      document.getElementById('mode-select').style.display='none';
+
+      if(currentMode === 'service'){
+        // Pornesc aplicația Service
+        document.getElementById('app').style.display='none';
+        document.getElementById('app-service').style.display='';
+        document.getElementById('srv-user-name').textContent=currentUser.name;
+        document.getElementById('srv-user-avatar').textContent=initials(currentUser.name);
+        document.getElementById('srv-user-avatar').style.background=avc(currentUser.name)+'33';
+        document.getElementById('srv-user-avatar').style.color=avc(currentUser.name);
+      } else {
+        // Pornesc aplicația Flotă
+        document.getElementById('app').style.display='';
+        document.getElementById('app-service').style.display='none';
+        document.getElementById('user-name').textContent=currentUser.name;
+        document.getElementById('user-avatar').textContent=initials(currentUser.name);
+        document.getElementById('user-avatar').style.background=avc(currentUser.name)+'33';
+        document.getElementById('user-avatar').style.color=avc(currentUser.name);
+        document.getElementById('info-email').textContent=currentUser.username + (user.email.includes(FAKE_DOMAIN)?'':' ('+user.email+')');
+      }
       startSync();
     } else {
       document.getElementById('loading').style.display='none';
-      document.getElementById('login-screen').style.display='';
       document.getElementById('app').style.display='none';
+      document.getElementById('app-service').style.display='none';
+      // Verifică dacă e modul deja selectat în localStorage
+      let savedMode = null;
+      try{ savedMode = localStorage.getItem('mtc_selected_mode'); }catch(e){}
+      if(savedMode){
+        currentMode = savedMode;
+        document.getElementById('mode-select').style.display='none';
+        document.getElementById('login-screen').style.display='';
+        document.getElementById('login-mode-title').textContent =
+          savedMode === 'service' ? 'Service auto' : 'Gestiune flotă mașini';
+        renderLoginUserButtons();
+      } else {
+        document.getElementById('mode-select').style.display='';
+        document.getElementById('login-screen').style.display='none';
+      }
     }
   });
 
@@ -967,6 +1248,10 @@ function hydrateFromCloud(d){
   knownUsers = d.knownUsers || [];
   window._currentForcedLogouts = d.forcedLogouts || {};
 
+  // Reparații Service
+  reparatii = (d.reparatii||[]).map(r=>({...r}));
+  repIdCtr = d.repIdCtr || 1;
+
   // Verifică forced logout pentru user-ul curent
   if(currentUser && window._currentForcedLogouts[currentUser.username]){
     const forcedAt = new Date(window._currentForcedLogouts[currentUser.username]);
@@ -1006,6 +1291,10 @@ function hydrateFromCloud(d){
     return;
   }
   renderAll();
+  // Render și Service dacă suntem în modul Service
+  if(currentMode === 'service'){
+    renderSrvAll();
+  }
 }
 
 function updateAdminUI(){
@@ -1185,6 +1474,8 @@ function saveToCloud(){
       admins,
       knownUsers,
       forcedLogouts: window._currentForcedLogouts || {},
+      reparatii,
+      repIdCtr,
       lastModifiedBy: currentUser?.name || 'unknown',
       lastModifiedAt: new Date().toISOString()
     };
@@ -1738,16 +2029,19 @@ function renderStricate(){
 function renderQuickUsers(){
   const sec = document.getElementById('admin-quick-users-list');
   if(!sec) return;
+  const allQuick = [...QUICK_USERS_FLOTA, ...QUICK_USERS_SERVICE];
   sec.innerHTML = '<div style="display:grid;gap:8px">' +
-    QUICK_USERS.map(u=>{
+    allQuick.map(u=>{
       const c = avc(u.name);
       const known = knownUsers.find(k=>k.username===u.username);
       const lastSeen = known?.lastSeen ? new Date(known.lastSeen) : null;
       const status = lastSeen ? `Ultima activitate: ${fmtDt(lastSeen)}` : 'Niciodată conectat';
+      const isService = u.username.endsWith('-srv');
+      const moduleLabel = isService ? '<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);margin-left:8px">SERVICE</span>' : '<span style="font-size:10px;font-weight:500;padding:2px 6px;border-radius:3px;background:rgba(200,245,66,.12);color:var(--accent);margin-left:8px">FLOTĂ</span>';
       return `<div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px">
         <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;background:${c}33;color:${c};flex-shrink:0">${initials(u.name)}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:500">${u.name}</div>
+          <div style="font-size:14px;font-weight:500">${u.name}${moduleLabel}</div>
           <div style="font-size:12px;color:var(--text3);margin-top:2px">${status}</div>
         </div>
         <button onclick="forceLogoutUser('${u.username}')" style="background:none;border:1px solid rgba(255,159,74,.4);color:var(--t6);cursor:pointer;font-size:12px;padding:6px 12px;border-radius:4px;flex-shrink:0">Delogare</button>
@@ -1757,7 +2051,8 @@ function renderQuickUsers(){
 
 // Delogare forțată — invalidează sesiunea pe toate dispozitivele
 async function forceLogoutUser(username){
-  const u = QUICK_USERS.find(x=>x.username===username) || knownUsers.find(x=>x.username===username);
+  const allQuick = [...QUICK_USERS_FLOTA, ...QUICK_USERS_SERVICE];
+  const u = allQuick.find(x=>x.username===username) || knownUsers.find(x=>x.username===username);
   if(!u){ toast('Utilizator negăsit'); return; }
   if(!confirm(`Forțează delogarea pentru ${u.name}?\n\nVa trebui să se reconecteze pe toate dispozitivele lui.`)) return;
   // Marker în Firebase — la următoarea verificare, sesiunea se închide
@@ -1841,6 +2136,302 @@ function renderAdmin(){
   renderAdminUsers();
   document.getElementById('admin-list-input').value = admins.join(', ');
 }
+// ═════════════════════════════════════════════════════════════
+// ── MODUL SERVICE ────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
+
+function showSrvTab(name){
+  ['active','istoric','adauga','masini','admin'].forEach(t=>{
+    const el=document.getElementById('srv-tab-'+t);
+    if(el) el.style.display=t===name?'':'none';
+  });
+  // Activare buton
+  const btns = document.querySelectorAll('#app-service .tab-btn');
+  btns.forEach(b=>b.classList.remove('active'));
+  const idx = ['active','istoric','adauga','masini','admin'].indexOf(name);
+  if(idx>=0 && btns[idx]) btns[idx].classList.add('active');
+
+  if(name==='active') renderSrvActive();
+  if(name==='istoric') renderSrvIstoric();
+  if(name==='adauga') renderSrvAdauga();
+  if(name==='masini') renderSrvMasini();
+  if(name==='admin') renderSrvAdmin();
+}
+
+function showSrvUserMenu(){
+  if(isAdminUser) showSrvTab('admin');
+}
+
+function renderSrvAll(){
+  updateSrvAdminUI();
+  updateSrvStats();
+  renderSrvActive();
+}
+
+function updateSrvAdminUI(){
+  const isAdmin = currentUser && admins.includes(currentUser.username);
+  isAdminUser = isAdmin;
+  const btn = document.getElementById('srv-tab-btn-admin');
+  if(btn) btn.style.display = isAdmin ? '' : 'none';
+  document.body.classList.toggle('user-mode', !isAdmin);
+  document.body.classList.toggle('admin-mode', isAdmin);
+}
+
+function updateSrvStats(){
+  const active = reparatii.filter(r=>r.status==='active').length;
+  const done = reparatii.filter(r=>r.status==='done').length;
+  const totalCost = reparatii.reduce((sum,r)=>sum + (Number(r.cost)||0), 0);
+  document.getElementById('srv-stat-active').textContent = active;
+  document.getElementById('srv-stat-done').textContent = done;
+  document.getElementById('srv-stat-cost').textContent = totalCost.toFixed(0);
+}
+
+function srvCardHtml(r, allowEdit){
+  const tipColor = r.masinaTip==='CRAFTER' ? 'var(--crafter)' : r.masinaTip==='T6' ? 'var(--t6)' : r.masinaTip==='ELEKTRO' ? 'var(--elektro)' : '#444';
+  const isActive = r.status === 'active';
+  const statusBadge = isActive
+    ? `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);font-family:var(--mono)">🔧 ÎN LUCRU</span>`
+    : `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(200,245,66,.12);color:var(--accent);font-family:var(--mono)">✓ FINALIZATĂ</span>`;
+  const data = r.data ? new Date(r.data) : null;
+  const dataFmt = data ? `${String(data.getDate()).padStart(2,'0')}.${String(data.getMonth()+1).padStart(2,'0')}.${data.getFullYear()}` : '—';
+  const editBtn = allowEdit ? `<button class="icon-btn" onclick="srvOpenEdit(${r.id})">✎</button>` : '';
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${tipColor}"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="tip-badge tip-${r.masinaTip||'unknown'}">${r.masinaTip||'?'}</span>
+        ${statusBadge}
+      </div>
+      <div class="card-actions">${editBtn}</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:16px;font-weight:500;margin-bottom:10px;letter-spacing:.04em">${r.masinaNr}</div>
+    <div style="font-size:13px;color:var(--text);margin-bottom:6px;line-height:1.4">${r.descriere||'—'}</div>
+    ${r.obs ? `<div style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:10px;line-height:1.4">${r.obs}</div>` : ''}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--text3)">
+        <div>${dataFmt}${r.km?` · ${Number(r.km).toLocaleString()} km`:''}</div>
+        ${r.addedBy?`<div style="margin-top:2px">de ${r.addedBy}</div>`:''}
+      </div>
+      <div style="font-family:var(--mono);font-size:15px;font-weight:500;color:var(--accent);white-space:nowrap">${(Number(r.cost)||0).toFixed(2)} €</div>
+    </div>
+  </div>`;
+}
+
+function renderSrvActive(){
+  const sec = document.getElementById('srv-active-section');
+  if(!sec) return;
+  const active = reparatii.filter(r=>r.status==='active').sort((a,b)=>{
+    return (b.addedAt||'').localeCompare(a.addedAt||'');
+  });
+  if(active.length===0){
+    sec.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px 20px;text-align:center"><div style="font-size:32px;margin-bottom:10px">🔧</div><div style="font-size:14px;color:var(--text2)">Nicio reparație activă.</div><div style="font-size:13px;color:var(--text3);margin-top:6px">Adaugă una din tabul "+ Adaugă"</div></div>';
+    updateSrvStats();
+    return;
+  }
+  sec.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">' +
+    active.map(r => srvCardHtml(r, true)).join('') + '</div>';
+  updateSrvStats();
+}
+
+function renderSrvIstoric(){
+  const sec = document.getElementById('srv-istoric-section');
+  if(!sec) return;
+  const q = (document.getElementById('srv-istoric-search')?.value||'').toLowerCase();
+  let list = reparatii.filter(r=>r.status==='done');
+  if(q){
+    list = list.filter(r =>
+      (r.masinaNr||'').toLowerCase().includes(q) ||
+      (r.descriere||'').toLowerCase().includes(q) ||
+      (r.obs||'').toLowerCase().includes(q)
+    );
+  }
+  list.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  if(list.length===0){
+    sec.innerHTML='<div style="padding:30px 20px;text-align:center;color:var(--text3);font-size:14px">'+(q?'Nicio reparație găsită pentru "'+q+'"':'Nicio reparație finalizată încă')+'</div>';
+    return;
+  }
+  sec.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">' +
+    list.map(r => srvCardHtml(r, true)).join('') + '</div>';
+}
+
+function renderSrvAdauga(){
+  // Populez dropdown-ul cu mașinile
+  const sel = document.getElementById('srv-new-masina');
+  if(!sel) return;
+  const sortedMasini = masini.slice().sort((a,b)=>(a.nr||'').localeCompare(b.nr||''));
+  sel.innerHTML = '<option value="">— alege mașina —</option>' +
+    sortedMasini.map(m=>`<option value="${m.id}">${m.nr} (${m.tip||'?'})</option>`).join('');
+  // Setez data de azi default
+  const today = new Date();
+  document.getElementById('srv-new-data').value =
+    `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+}
+
+function srvAddReparatie(){
+  const masinaId = parseInt(document.getElementById('srv-new-masina').value);
+  const data = document.getElementById('srv-new-data').value;
+  const km = document.getElementById('srv-new-km').value;
+  const descriere = document.getElementById('srv-new-descriere').value.trim();
+  const cost = document.getElementById('srv-new-cost').value;
+  const obs = document.getElementById('srv-new-obs').value.trim();
+
+  if(!masinaId){ toast('Alege mașina'); return; }
+  if(!data){ toast('Adaugă data'); return; }
+  if(!descriere){ toast('Adaugă descrierea'); return; }
+
+  const m = masini.find(x=>x.id===masinaId);
+  if(!m){ toast('Mașină inexistentă'); return; }
+
+  reparatii.push({
+    id: repIdCtr++,
+    masinaId: m.id,
+    masinaNr: m.nr,
+    masinaTip: m.tip,
+    data,
+    km: km ? Number(km) : null,
+    descriere,
+    cost: cost ? Number(cost) : 0,
+    obs,
+    status: 'active',
+    addedBy: currentUser?.name || 'unknown',
+    addedByUsername: currentUser?.username || '',
+    addedAt: new Date().toISOString()
+  });
+
+  // Reset form
+  document.getElementById('srv-new-masina').value = '';
+  document.getElementById('srv-new-km').value = '';
+  document.getElementById('srv-new-descriere').value = '';
+  document.getElementById('srv-new-cost').value = '';
+  document.getElementById('srv-new-obs').value = '';
+
+  saveToCloud();
+  toast('Reparație adăugată');
+  showSrvTab('active');
+}
+
+function renderSrvMasini(){
+  const sec = document.getElementById('srv-masini-section');
+  if(!sec) return;
+  const q = (document.getElementById('srv-masini-search')?.value||'').toLowerCase();
+  let list = masini.slice();
+  if(q){
+    list = list.filter(m => (m.nr||'').toLowerCase().includes(q));
+  }
+  list.sort((a,b)=>(a.nr||'').localeCompare(b.nr||''));
+  if(list.length===0){
+    sec.innerHTML='<div class="empty-state">Nicio mașină.</div>';
+    return;
+  }
+  sec.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">' +
+    list.map(m=>{
+      const reps = reparatii.filter(r => r.masinaId===m.id || r.masinaNr===m.nr);
+      const activeCount = reps.filter(r=>r.status==='active').length;
+      const totalCount = reps.length;
+      const totalCost = reps.reduce((s,r)=>s+(Number(r.cost)||0),0);
+      const tipColor = m.tip==='CRAFTER' ? 'var(--crafter)' : m.tip==='T6' ? 'var(--t6)' : m.tip==='ELEKTRO' ? 'var(--elektro)' : '#444';
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${tipColor}"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span class="tip-badge tip-${m.tip||'unknown'}">${m.tip||'?'}</span>
+          ${activeCount>0?`<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);font-family:var(--mono)">🔧 ${activeCount}</span>`:''}
+        </div>
+        <div style="font-family:var(--mono);font-size:15px;font-weight:500;margin-bottom:10px">${m.nr}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding-top:8px;border-top:1px solid var(--border)">
+          <span>Total reparații: <strong style="color:var(--text)">${totalCount}</strong></span>
+          <span style="font-family:var(--mono);color:var(--accent)">${totalCost.toFixed(0)} €</span>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+function renderSrvAdmin(){
+  const isAdmin = currentUser && admins.includes(currentUser.username);
+  if(!isAdmin) return;
+  document.getElementById('srv-info-name').textContent = currentUser.name;
+  document.getElementById('srv-info-total').textContent = reparatii.length;
+  document.getElementById('srv-rep-count').textContent = reparatii.length;
+}
+
+// Editare reparație
+function srvOpenEdit(id){
+  const r = reparatii.find(x=>x.id===id);
+  if(!r){ toast('Reparație negăsită'); return; }
+  editingRepId = id;
+  document.getElementById('srv-edit-sub').textContent = `${r.masinaNr} · ${r.masinaTip||'?'}`;
+  document.getElementById('srv-edit-status').value = r.status || 'active';
+  document.getElementById('srv-edit-data').value = r.data || '';
+  document.getElementById('srv-edit-km').value = r.km || '';
+  document.getElementById('srv-edit-descriere').value = r.descriere || '';
+  document.getElementById('srv-edit-cost').value = r.cost || '';
+  document.getElementById('srv-edit-obs').value = r.obs || '';
+  document.getElementById('srv-modal-edit').classList.add('open');
+}
+function srvCloseEdit(){
+  document.getElementById('srv-modal-edit').classList.remove('open');
+  editingRepId = null;
+}
+function srvSaveEdit(){
+  const r = reparatii.find(x=>x.id===editingRepId);
+  if(!r) return;
+  r.status = document.getElementById('srv-edit-status').value;
+  r.data = document.getElementById('srv-edit-data').value;
+  const kmVal = document.getElementById('srv-edit-km').value;
+  r.km = kmVal ? Number(kmVal) : null;
+  r.descriere = document.getElementById('srv-edit-descriere').value.trim();
+  const costVal = document.getElementById('srv-edit-cost').value;
+  r.cost = costVal ? Number(costVal) : 0;
+  r.obs = document.getElementById('srv-edit-obs').value.trim();
+  r.editedBy = currentUser?.name || 'unknown';
+  r.editedAt = new Date().toISOString();
+  srvCloseEdit();
+  saveToCloud();
+  renderSrvAll();
+  // Re-render tab-ul curent
+  if(document.getElementById('srv-tab-istoric').style.display !== 'none') renderSrvIstoric();
+  if(document.getElementById('srv-tab-masini').style.display !== 'none') renderSrvMasini();
+  toast('Reparație salvată');
+}
+function srvDeleteRep(){
+  if(!isAdminUser){ toast('Doar adminul poate șterge'); return; }
+  if(!confirm('Ștergi această reparație definitiv?')) return;
+  reparatii = reparatii.filter(x=>x.id!==editingRepId);
+  srvCloseEdit();
+  saveToCloud();
+  renderSrvAll();
+  if(document.getElementById('srv-tab-istoric').style.display !== 'none') renderSrvIstoric();
+  if(document.getElementById('srv-tab-masini').style.display !== 'none') renderSrvMasini();
+  toast('Reparație ștearsă');
+}
+
+function srvDeleteAll(){
+  if(!isAdminUser){ toast('Doar adminul poate face asta'); return; }
+  const count = reparatii.length;
+  if(count === 0){ toast('Lista e deja goală'); return; }
+  if(!confirm(`Ești sigur că vrei să ștergi TOATE cele ${count} reparații?\n\nMașinile rămân nemodificate.\n\nAceastă acțiune NU poate fi anulată.`)) return;
+  const typed = prompt(`Pentru a confirma definitiv, scrie cuvântul "STERGE" (cu majuscule):`);
+  if(typed !== 'STERGE'){ toast('Anulat'); return; }
+  reparatii = [];
+  repIdCtr = 1;
+  saveToCloud();
+  renderSrvAll();
+  toast(`Șterse ${count} reparații`);
+}
+
+function srvExport(){
+  const data = JSON.stringify(reparatii, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data], {type:'application/json'}));
+  a.download = 'reparatii_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('Export generat');
+}
+
+// Click în afara modalului = închide
+document.getElementById('srv-modal-edit').addEventListener('click', e=>{
+  if(e.target.id === 'srv-modal-edit') srvCloseEdit();
+});
+
 // ── TABS ─────────────────────────────────────────────────────────────
 function showTab(name){
   ['masini','disponibil','log','amenda','soferi','setari','stricate','admin'].forEach(t=>{
@@ -1897,6 +2488,20 @@ window.quickLogin=quickLogin;
 window.showAdminLogin=showAdminLogin;
 window.hideAdminLogin=hideAdminLogin;
 window.forceLogoutUser=forceLogoutUser;
+window.selectMode=selectMode;
+window.backToModeSelect=backToModeSelect;
+// Service mode
+window.showSrvTab=showSrvTab;
+window.showSrvUserMenu=showSrvUserMenu;
+window.srvAddReparatie=srvAddReparatie;
+window.srvOpenEdit=srvOpenEdit;
+window.srvCloseEdit=srvCloseEdit;
+window.srvSaveEdit=srvSaveEdit;
+window.srvDeleteRep=srvDeleteRep;
+window.srvDeleteAll=srvDeleteAll;
+window.srvExport=srvExport;
+window.renderSrvIstoric=renderSrvIstoric;
+window.renderSrvMasini=renderSrvMasini;
 
 // Enter key pentru login
 document.getElementById('login-password').addEventListener('keypress',e=>{if(e.key==='Enter')doAuth();});
