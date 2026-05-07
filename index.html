@@ -2311,19 +2311,63 @@ async function initNotifications(){
 
   try {
     const permission = await Notification.requestPermission();
-    if(permission !== 'granted') return;
+    if(permission !== 'granted'){
+      console.log('Notificări refuzate de user');
+      return;
+    }
 
-    const sw = await navigator.serviceWorker.ready;
+    // Asigură că service worker-ul pentru messaging e înregistrat
+    let swReg;
+    try {
+      swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      await navigator.serviceWorker.ready;
+    } catch(e) {
+      swReg = await navigator.serviceWorker.ready;
+    }
+
     const token = await window.fbGetToken(window.fbMessaging, {
       vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: sw
+      serviceWorkerRegistration: swReg
     });
 
+    console.log('FCM Token obținut:', token ? token.slice(0,30)+'...' : 'null');
+
     if(token && currentUser){
-      // Salvez token-ul în knownUsers ca să știu la cine să trimit
+      // Salvare robustă — direct în Firestore, nu prin saveToCloud
       const existing = knownUsers.find(u => u.username === currentUser.username);
-      if(existing && existing.pushToken !== token){
+      if(existing){
+        const oldToken = existing.pushToken;
         existing.pushToken = token;
+        existing.pushTokenUpdatedAt = new Date().toISOString();
+        if(oldToken !== token){
+          console.log('Token nou salvat în Firestore');
+          // Salvare imediată fără debounce
+          try{
+            const payload = {
+              masini, soferi,
+              log: log.map(l=>({...l, preluat:l.preluat?l.preluat.toISOString():null, restituit:l.restituit?l.restituit.toISOString():null})),
+              carIdCtr, logIdCtr, admins, knownUsers,
+              forcedLogouts: window._currentForcedLogouts||{},
+              reparatii, repIdCtr, taskuri, taskIdCtr,
+              lastModifiedBy: currentUser.name,
+              lastModifiedAt: new Date().toISOString()
+            };
+            await window.fbHelpers.setDoc(window.fbDocRef, payload);
+            console.log('✓ Token salvat cu succes în Firestore');
+          } catch(saveErr){
+            console.error('Eroare salvare token:', saveErr);
+          }
+        }
+      } else {
+        // User nu e în knownUsers — adaugă-l
+        knownUsers.push({
+          username: currentUser.username,
+          name: currentUser.name,
+          pushToken: token,
+          pushTokenUpdatedAt: new Date().toISOString(),
+          firstSeen: new Date().toISOString(),
+          lastSeen: new Date().toISOString()
+        });
         saveToCloud();
       }
     }
