@@ -641,6 +641,8 @@ body.user-mode .log-mobile-card {
 
   <!-- Tab Sarcini (To-Do) -->
   <div id="srv-tab-taskuri" style="display:none">
+    <!-- Banner debug temporar -->
+    <div id="srv-debug-banner" style="display:none;background:rgba(200,245,66,.1);border:1px solid var(--accent);border-radius:4px;padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:12px"></div>
     <div id="srv-taskuri-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
       <button class="filter-btn active" data-task-filter="me" onclick="setTaskFilter('me')">Sarcinile mele</button>
       <button class="filter-btn" data-task-filter="all" onclick="setTaskFilter('all')">Toate</button>
@@ -958,14 +960,28 @@ const QUICK_USERS_SERVICE = [
 
 // Helper: returnează rolul unui user Service
 function getSrvRole(username){
+  if(!username) return null;
   const u = QUICK_USERS_SERVICE.find(x=>x.username===username);
   return u ? u.role : null;
+}
+// Helper: e mecanic (Ion/Vasile) — logică inversată, mai sigură
+function isSrvMecanic(){
+  if(!currentUser) return false;
+  if(isAdminUser) return false;
+  // Mecanic explicit
+  const roleByUsername = getSrvRole(currentUser.username);
+  if(roleByUsername === 'mecanic') return true;
+  // Fallback după displayName
+  const u = QUICK_USERS_SERVICE.find(x=>x.name===currentUser.name);
+  if(u) return u.role === 'mecanic';
+  // Dacă nu știm cine e, nu blocăm
+  return false;
 }
 // Helper: e șef în Service?
 function isSrvSef(){
   if(!currentUser) return false;
   if(isAdminUser) return true;
-  return getSrvRole(currentUser.username) === 'sef';
+  return !isSrvMecanic();
 }
 
 const SPECIALS=['DEPOZIT','POLLING','EISELFING','AVP','PAKETSHOP','STRICATA'];
@@ -2517,8 +2533,15 @@ function renderSrvTaskuri(){
   const sec = document.getElementById('srv-taskuri-section');
   if(!sec) return;
 
-  // Actualizez vizibilitatea butonului direct aici — independent de ordinea apelurilor
+  // Banner debug temporar — îl scoatem după ce rezolvăm problema
   const sef = isSrvSef();
+  const mecanic = isSrvMecanic();
+  const debugBanner = document.getElementById('srv-debug-banner');
+  if(debugBanner){
+    debugBanner.textContent = `DEBUG: username="${currentUser?.username}" name="${currentUser?.name}" isSef=${sef} isMecanic=${mecanic}`;
+    debugBanner.style.display = '';
+  }
+
   const addBtn = document.getElementById('srv-add-task-btn');
   if(addBtn) addBtn.style.display = sef ? '' : 'none';
 
