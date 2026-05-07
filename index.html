@@ -1427,6 +1427,7 @@ function hydrateFromCloud(d){
   // Render și Service dacă suntem în modul Service
   if(currentMode === 'service'){
     renderSrvAll();
+    updateSrvAdminUI(); // re-apelăm explicit după ce avem toate datele
     checkForNewTasks();
     checkForCompletedTasks();
   }
@@ -2454,7 +2455,7 @@ function showSrvTab(name){
   if(idx>=0 && btns[idx]) btns[idx].classList.add('active');
 
   if(name==='active') renderSrvActive();
-  if(name==='taskuri') renderSrvTaskuri();
+  if(name==='taskuri'){ updateSrvAdminUI(); renderSrvTaskuri(); }
   if(name==='istoric') renderSrvIstoric();
   if(name==='adauga') renderSrvAdauga();
   if(name==='masini') renderSrvMasini();
@@ -2515,6 +2516,19 @@ function getCurrentDriverForMasina(masinaId){
 function renderSrvTaskuri(){
   const sec = document.getElementById('srv-taskuri-section');
   if(!sec) return;
+
+  // Actualizez vizibilitatea butonului direct aici — independent de ordinea apelurilor
+  const sef = isSrvSef();
+  const addBtn = document.getElementById('srv-add-task-btn');
+  if(addBtn) addBtn.style.display = sef ? '' : 'none';
+
+  // Ascund filtrele Ion/Vasile pentru mecanici (ei văd doar sarcinile lor)
+  const filterToolbar = document.getElementById('srv-taskuri-toolbar');
+  if(filterToolbar){
+    filterToolbar.querySelectorAll('[data-task-filter="ion-srv"], [data-task-filter="vasile-srv"], [data-task-filter="all"]').forEach(b=>{
+      b.style.display = sef ? '' : 'none';
+    });
+  }
 
   let list = taskuri.slice();
 
