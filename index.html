@@ -942,9 +942,10 @@ let knownUsers=[];       // utilizatori care s-au logat (pt. lista din admin)
 let reparatii=[];        // {id, masinaNr, masinaTip, data, km, descriere, cost, obs, status, addedBy, addedAt}
 let repIdCtr=1;
 let editingRepId=null;
-let taskuri=[];          // {id, masinaId, masinaNr, masinaTip, descriere, asignat, deadline, status, createdBy, createdAt, completedAt}
+let taskuri=[];
 let taskIdCtr=1;
 let editingTaskId=null;
+let lastKnownTaskIds = new Set();
 let currentMode = null;  // 'flota' | 'service' | null (la mode select)
 
 // Useri prestabiliți pentru fiecare modul
@@ -1236,7 +1237,11 @@ window.addEventListener('firebase-ready', ()=>{
         document.getElementById('srv-user-avatar').style.color=avc(currentUser.name);
         document.getElementById('mode-select').style.display='none';
         // Notificări push și briefing de dimineață
-        setTimeout(()=>{ initNotifications(); checkMorningBriefing(); }, 2000);
+        setTimeout(()=>{
+          requestNotificationPermission();
+          initNotifications();
+          checkMorningBriefing();
+        }, 2000);
       } else {
         // Pornesc aplicația Flotă — ascund complet Service
         document.getElementById('app').style.display='';
@@ -2408,7 +2413,7 @@ function sendLocalNotification(title, body){
 }
 
 // Verifică sarcini noi pentru user-ul curent (la fiecare sync din cloud)
-let lastKnownTaskIds = new Set();
+let lastTaskCheck = null;
 function checkForNewTasks(){
   if(currentMode !== 'service') return;
   if(!currentUser) return;
@@ -2418,14 +2423,28 @@ function checkForNewTasks(){
     t.status !== 'done'
   );
 
+  // Prima verificare — inițializez lista, nu trimit notificare
+  if(lastKnownTaskIds.size === 0 && myTasks.length > 0){
+    lastKnownTaskIds = new Set(myTasks.map(t => t.id));
+    return;
+  }
+
   const newTasks = myTasks.filter(t => !lastKnownTaskIds.has(t.id));
 
-  if(newTasks.length > 0 && lastKnownTaskIds.size > 0){
-    // Există sarcini noi față de ultima verificare
+  if(newTasks.length > 0){
     newTasks.forEach(t => {
+      const deadline = t.deadline
+        ? ` · termen: ${t.deadline.split('-').reverse().join('.')}`
+        : '';
+      // Notificare sistem (dacă permisiunile sunt acordate)
       sendLocalNotification(
         `Sarcină nouă — ${t.masinaNr}`,
-        `${t.descriere}${t.deadline ? ` · termen: ${t.deadline}` : ''}`
+        `${t.descriere}${deadline}`
+      );
+      // Și notificare vizuală în aplicație (mereu vizibilă)
+      showInAppNotification(
+        `Sarcină nouă — ${t.masinaNr}`,
+        `${t.descriere}${deadline}`
       );
     });
   }
@@ -2441,9 +2460,10 @@ function checkForCompletedTasks(){
 
   const recentlyDone = taskuri.filter(t => {
     if(t.status !== 'done' || !t.completedAt) return false;
+    // Sarcini finalizate în ultimele 10 minute
     const completedAt = new Date(t.completedAt);
-    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-    return completedAt > fiveMinAgo;
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
+    return completedAt > tenMinAgo;
   });
 
   recentlyDone.forEach(t => {
@@ -2453,12 +2473,30 @@ function checkForCompletedTasks(){
     if(!alreadyNotified){
       const mecName = (QUICK_USERS_SERVICE.find(u=>u.username===t.asignat)||{}).name || t.asignat;
       sendLocalNotification(
-        `${mecName} a finalizat o sarcină`,
+        `${mecName} a finalizat`,
+        `${t.masinaNr} · ${t.descriere}`
+      );
+      showInAppNotification(
+        `${mecName} a finalizat`,
         `${t.masinaNr} · ${t.descriere}`
       );
       try{ localStorage.setItem(notifKey, '1'); }catch(e){}
     }
   });
+}
+
+// Solicită permisiunea de notificări la prima logare în Service
+async function requestNotificationPermission(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'default'){
+    // Mic delay ca să nu apară imediat la deschidere
+    setTimeout(async ()=>{
+      const result = await Notification.requestPermission();
+      if(result === 'granted'){
+        showInAppNotification('Notificări activate ✓', 'Vei primi notificări pentru sarcini noi.');
+      }
+    }, 3000);
+  }
 }
 
 function showSrvTab(name){
@@ -3182,25 +3220,26 @@ document.getElementById('login-email').addEventListener('keypress',e=>{if(e.key=
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('sw.js').then(reg=>{
-      // Verifică update la fiecare deschidere
+      // Verifică update imediat la deschidere
       reg.update();
-      // Când vine versiune nouă, anunță utilizatorul
+
+      // Verifică update la fiecare 30 secunde — garantează că vede versiunea nouă
+      setInterval(()=>reg.update(), 30000);
+
+      // Când vine versiune nouă, instalează imediat fără să aștepte
       reg.addEventListener('updatefound', ()=>{
         const newWorker = reg.installing;
         if(newWorker){
           newWorker.addEventListener('statechange', ()=>{
             if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
-              // Versiune nouă disponibilă — afișează notificare
-              if(confirm('O versiune nouă a aplicației este disponibilă. Reîncarci acum?')){
-                newWorker.postMessage('SKIP_WAITING');
-                window.location.reload();
-              }
+              newWorker.postMessage('SKIP_WAITING');
             }
           });
         }
       });
     }).catch(()=>{});
-    // Reload automat când service worker-ul nou ia controlul
+
+    // Când service worker-ul nou ia controlul, reîncarcă automat
     let reloading=false;
     navigator.serviceWorker.addEventListener('controllerchange', ()=>{
       if(reloading) return;

@@ -1,12 +1,10 @@
-// Service worker — strategie "network-first" cu fallback la cache
-// Asta înseamnă: mereu încearcă rețeaua întâi (vezi versiunea cea mai nouă),
-// și folosește cache-ul DOAR dacă ești offline.
-const CACHE = 'flota-v3';
+const CACHE = 'flota-v4';
 const ASSETS = ['./', './index.html', './manifest.json', './config.js', './firebase-messaging-sw.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  self.skipWaiting(); // activează imediat, fără să aștepte refresh
+  // Activare imediată — nu așteaptă ca tab-urile vechi să se închidă
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
@@ -19,13 +17,10 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-
-  // Lasă Firebase să meargă direct la rețea, fără cache
   if (url.includes('firebaseio') || url.includes('googleapis') || url.includes('firebase') || url.includes('gstatic')) {
     return;
   }
-
-  // Network-first: încearcă rețeaua, dacă pică folosește cache-ul
+  // Network-first: mereu încearcă rețeaua, cache doar pentru offline
   e.respondWith(
     fetch(e.request)
       .then(resp => {
