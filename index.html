@@ -316,6 +316,7 @@ body.user-mode .log-mobile-card {
       <div class="user-avatar" id="user-avatar">?</div>
       <span id="user-name">—</span>
     </div>
+    <button onclick="doLogout()" title="Ieși din cont" style="background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-size:13px;padding:7px 12px;border-radius:var(--radius);font-family:inherit">↪</button>
   </div>
 </div>
 
@@ -603,6 +604,7 @@ body.user-mode .log-mobile-card {
   </div>
   <div class="header-right">
     <div class="header-stats">
+      <div class="hstat"><div class="hstat-val" id="srv-stat-tasks" style="color:var(--t6)">0</div><div class="hstat-label">Sarcini</div></div>
       <div class="hstat"><div class="hstat-val" id="srv-stat-active" style="color:var(--t6)">0</div><div class="hstat-label">Active</div></div>
       <div class="hstat"><div class="hstat-val" id="srv-stat-done" style="color:var(--accent)">0</div><div class="hstat-label">Finalizate</div></div>
       <div class="hstat"><div class="hstat-val" id="srv-stat-cost" style="color:var(--text)">0</div><div class="hstat-label">Cost €</div></div>
@@ -612,11 +614,13 @@ body.user-mode .log-mobile-card {
       <div class="user-avatar" id="srv-user-avatar">?</div>
       <span id="srv-user-name">—</span>
     </div>
+    <button onclick="doLogout()" title="Ieși din cont" style="background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-size:13px;padding:7px 12px;border-radius:var(--radius);font-family:inherit">↪</button>
   </div>
 </div>
 
 <div class="tabs-bar">
   <button class="tab-btn active" onclick="showSrvTab('active')">Reparații active</button>
+  <button class="tab-btn" onclick="showSrvTab('taskuri')">📋 Sarcini</button>
   <button class="tab-btn" onclick="showSrvTab('istoric')">Istoric</button>
   <button class="tab-btn" onclick="showSrvTab('adauga')">+ Adaugă</button>
   <button class="tab-btn" onclick="showSrvTab('masini')">Mașini</button>
@@ -627,6 +631,20 @@ body.user-mode .log-mobile-card {
   <!-- Tab Reparații active -->
   <div id="srv-tab-active">
     <div id="srv-active-section"></div>
+  </div>
+
+  <!-- Tab Sarcini (To-Do) -->
+  <div id="srv-tab-taskuri" style="display:none">
+    <div id="srv-taskuri-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <button class="filter-btn active" data-task-filter="me" onclick="setTaskFilter('me')">Sarcinile mele</button>
+      <button class="filter-btn" data-task-filter="all" onclick="setTaskFilter('all')">Toate</button>
+      <button class="filter-btn" data-task-filter="ion-srv" onclick="setTaskFilter('ion-srv')">Ion</button>
+      <button class="filter-btn" data-task-filter="vasile-srv" onclick="setTaskFilter('vasile-srv')">Vasile</button>
+      <button class="filter-btn" data-task-filter="done" onclick="setTaskFilter('done')">Finalizate</button>
+      <div style="flex:1"></div>
+      <button class="btn-add-log" id="srv-add-task-btn" onclick="srvOpenAddTask()">+ Sarcină nouă</button>
+    </div>
+    <div id="srv-taskuri-section"></div>
   </div>
 
   <!-- Tab Istoric -->
@@ -706,6 +724,74 @@ body.user-mode .log-mobile-card {
         <strong style="color:var(--danger)">Această acțiune NU poate fi anulată.</strong>
       </div>
       <button class="btn btn-danger" onclick="srvDeleteAll()" style="flex:none;width:auto">Șterge toate reparațiile</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal creare/editare task -->
+<div class="modal-overlay" id="srv-modal-task">
+  <div class="modal">
+    <div class="modal-title" id="srv-task-title">Sarcină nouă</div>
+    <div class="modal-sub" id="srv-task-sub"></div>
+
+    <div class="modal-field">
+      <div class="modal-label">Mașină</div>
+      <select id="srv-task-masina"></select>
+      <div id="srv-task-masina-info" style="font-size:12px;color:var(--text2);margin-top:6px;padding:8px 10px;background:var(--surface2);border-radius:4px;display:none"></div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Cine se ocupă</div>
+      <select id="srv-task-asignat">
+        <option value="ion-srv">Ion</option>
+        <option value="vasile-srv">Vasile</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Termen (când trebuie făcută)</div>
+      <input id="srv-task-deadline" type="date">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Ce trebuie făcut</div>
+      <textarea id="srv-task-descriere" rows="3" placeholder="ex: schimbat plăcuțe frână față" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:15px;padding:11px 12px;outline:none;width:100%;resize:vertical"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="srv-task-delete-btn" onclick="srvDeleteTask()" style="display:none">Șterge</button>
+      <button class="btn" onclick="srvCloseTaskModal()">Anulează</button>
+      <button class="btn btn-primary" onclick="srvSaveTask()">Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal completare task (de către Ion/Vasile) -->
+<div class="modal-overlay" id="srv-modal-complete">
+  <div class="modal">
+    <div class="modal-title">Marchează sarcină finalizată</div>
+    <div class="modal-sub" id="srv-complete-sub"></div>
+
+    <div style="background:rgba(200,245,66,.06);border:1px solid rgba(200,245,66,.22);border-radius:var(--radius);padding:12px 14px;font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.5">
+      Sarcina va fi marcată ca finalizată și se va crea automat o intrare în istoricul de reparații cu datele pe care le adaugi mai jos.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
+        <div class="modal-label">Kilometraj (km)</div>
+        <input id="srv-complete-km" type="number" placeholder="0">
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">Cost (€)</div>
+        <input id="srv-complete-cost" type="number" step="0.01" placeholder="0.00">
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <div class="modal-label">Observații (opțional)</div>
+      <textarea id="srv-complete-obs" rows="2" placeholder="ce s-a făcut concret, piese folosite..." style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:15px;padding:11px 12px;outline:none;width:100%;resize:vertical"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="srvCloseComplete()">Anulează</button>
+      <button class="btn btn-primary" onclick="srvFinalizeTask()">Marchează finalizată</button>
     </div>
   </div>
 </div>
@@ -834,6 +920,9 @@ let knownUsers=[];       // utilizatori care s-au logat (pt. lista din admin)
 let reparatii=[];        // {id, masinaNr, masinaTip, data, km, descriere, cost, obs, status, addedBy, addedAt}
 let repIdCtr=1;
 let editingRepId=null;
+let taskuri=[];          // {id, masinaId, masinaNr, masinaTip, descriere, asignat, deadline, status, createdBy, createdAt, completedAt}
+let taskIdCtr=1;
+let editingTaskId=null;
 let currentMode = null;  // 'flota' | 'service' | null (la mode select)
 
 // Useri prestabiliți pentru fiecare modul
@@ -843,11 +932,23 @@ const QUICK_USERS_FLOTA = [
   { username: 'raluca', name: 'Raluca' }
 ];
 const QUICK_USERS_SERVICE = [
-  { username: 'cristi-srv', name: 'Cristi' },
-  { username: 'mihai-srv', name: 'Mihai' },
-  { username: 'ion-srv', name: 'Ion' },
-  { username: 'vasile-srv', name: 'Vasile' }
+  { username: 'cristi-srv', name: 'Cristi', role: 'sef' },
+  { username: 'mihai-srv', name: 'Mihai', role: 'sef' },
+  { username: 'ion-srv', name: 'Ion', role: 'mecanic' },
+  { username: 'vasile-srv', name: 'Vasile', role: 'mecanic' }
 ];
+
+// Helper: returnează rolul unui user Service
+function getSrvRole(username){
+  const u = QUICK_USERS_SERVICE.find(x=>x.username===username);
+  return u ? u.role : null;
+}
+// Helper: e șef în Service?
+function isSrvSef(){
+  if(!currentUser) return false;
+  if(isAdminUser) return true;
+  return getSrvRole(currentUser.username) === 'sef';
+}
 
 const SPECIALS=['DEPOZIT','POLLING','EISELFING','AVP','PAKETSHOP','STRICATA'];
 
@@ -1251,6 +1352,9 @@ function hydrateFromCloud(d){
   // Reparații Service
   reparatii = (d.reparatii||[]).map(r=>({...r}));
   repIdCtr = d.repIdCtr || 1;
+  // Sarcini Service
+  taskuri = (d.taskuri||[]).map(t=>({...t}));
+  taskIdCtr = d.taskIdCtr || 1;
 
   // Verifică forced logout pentru user-ul curent
   if(currentUser && window._currentForcedLogouts[currentUser.username]){
@@ -1476,6 +1580,8 @@ function saveToCloud(){
       forcedLogouts: window._currentForcedLogouts || {},
       reparatii,
       repIdCtr,
+      taskuri,
+      taskIdCtr,
       lastModifiedBy: currentUser?.name || 'unknown',
       lastModifiedAt: new Date().toISOString()
     };
@@ -2141,17 +2247,18 @@ function renderAdmin(){
 // ═════════════════════════════════════════════════════════════
 
 function showSrvTab(name){
-  ['active','istoric','adauga','masini','admin'].forEach(t=>{
+  ['active','taskuri','istoric','adauga','masini','admin'].forEach(t=>{
     const el=document.getElementById('srv-tab-'+t);
     if(el) el.style.display=t===name?'':'none';
   });
   // Activare buton
   const btns = document.querySelectorAll('#app-service .tab-btn');
   btns.forEach(b=>b.classList.remove('active'));
-  const idx = ['active','istoric','adauga','masini','admin'].indexOf(name);
+  const idx = ['active','taskuri','istoric','adauga','masini','admin'].indexOf(name);
   if(idx>=0 && btns[idx]) btns[idx].classList.add('active');
 
   if(name==='active') renderSrvActive();
+  if(name==='taskuri') renderSrvTaskuri();
   if(name==='istoric') renderSrvIstoric();
   if(name==='adauga') renderSrvAdauga();
   if(name==='masini') renderSrvMasini();
@@ -2166,6 +2273,7 @@ function renderSrvAll(){
   updateSrvAdminUI();
   updateSrvStats();
   renderSrvActive();
+  renderSrvTaskuri();
 }
 
 function updateSrvAdminUI(){
@@ -2173,14 +2281,341 @@ function updateSrvAdminUI(){
   isAdminUser = isAdmin;
   const btn = document.getElementById('srv-tab-btn-admin');
   if(btn) btn.style.display = isAdmin ? '' : 'none';
+
+  const sef = isSrvSef();
+  // Adăugarea de sarcini noi e doar pentru șefi (sau admin)
+  const addTaskBtn = document.getElementById('srv-add-task-btn');
+  if(addTaskBtn) addTaskBtn.style.display = sef ? '' : 'none';
+
+  // Marker pe body — folosit de CSS-uri restrictive
   document.body.classList.toggle('user-mode', !isAdmin);
   document.body.classList.toggle('admin-mode', isAdmin);
+  document.body.classList.toggle('srv-mecanic', currentMode==='service' && !sef);
+  document.body.classList.toggle('srv-sef', currentMode==='service' && sef);
 }
+
+// ── TASKURI / SARCINI ─────────────────────────────────────────
+let currentTaskFilter = 'me'; // 'me', 'all', 'ion-srv', 'vasile-srv', 'done'
+
+function setTaskFilter(f){
+  currentTaskFilter = f;
+  document.querySelectorAll('[data-task-filter]').forEach(b=>{
+    b.classList.toggle('active', b.dataset.taskFilter===f);
+  });
+  renderSrvTaskuri();
+}
+
+// Returnează șoferul curent al unei mașini (preluat din Flotă)
+function getCurrentDriverForMasina(masinaId){
+  const m = masini.find(x=>x.id===masinaId);
+  if(!m) return null;
+  return {
+    nr: m.nr,
+    tip: m.tip,
+    sofer: m.sofer || '— nealocat —'
+  };
+}
+
+function renderSrvTaskuri(){
+  const sec = document.getElementById('srv-taskuri-section');
+  if(!sec) return;
+
+  let list = taskuri.slice();
+
+  // Filtrez după currentTaskFilter
+  if(currentTaskFilter === 'me'){
+    if(currentUser && currentUser.username){
+      list = list.filter(t => t.asignat === currentUser.username && t.status !== 'done');
+    }
+  } else if(currentTaskFilter === 'done'){
+    list = list.filter(t => t.status === 'done');
+  } else if(currentTaskFilter === 'ion-srv' || currentTaskFilter === 'vasile-srv'){
+    list = list.filter(t => t.asignat === currentTaskFilter && t.status !== 'done');
+  } else {
+    // 'all' — toate active
+    list = list.filter(t => t.status !== 'done');
+  }
+
+  // Sortez după deadline (cele mai apropiate sus, cele întârziate marcate)
+  list.sort((a,b)=>{
+    const da = a.deadline || '9999-99-99';
+    const db = b.deadline || '9999-99-99';
+    return da.localeCompare(db);
+  });
+
+  if(list.length===0){
+    let msg = 'Nicio sarcină';
+    if(currentTaskFilter==='me') msg = 'Nu ai nicio sarcină momentan';
+    else if(currentTaskFilter==='done') msg = 'Nicio sarcină finalizată';
+    sec.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px 20px;text-align:center"><div style="font-size:32px;margin-bottom:10px">📋</div><div style="font-size:14px;color:var(--text2)">'+msg+'</div></div>';
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  sec.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px">' +
+    list.map(t=>{
+      const driver = getCurrentDriverForMasina(t.masinaId);
+      const tipColor = t.masinaTip==='CRAFTER' ? 'var(--crafter)' : t.masinaTip==='T6' ? 'var(--t6)' : t.masinaTip==='ELEKTRO' ? 'var(--elektro)' : '#444';
+
+      // Determine starea termenului
+      let deadlineHtml = '';
+      let borderColor = 'var(--border)';
+      if(t.status==='done'){
+        deadlineHtml = `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(200,245,66,.12);color:var(--accent);font-family:var(--mono)">✓ FINALIZATĂ</span>`;
+      } else if(t.deadline){
+        const dl = new Date(t.deadline);
+        dl.setHours(0,0,0,0);
+        const diff = Math.floor((dl - today) / (1000*60*60*24));
+        if(diff < 0){
+          deadlineHtml = `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(255,90,90,.12);color:var(--danger);font-family:var(--mono)">⚠ ÎNTÂRZIAT ${Math.abs(diff)}z</span>`;
+          borderColor = 'rgba(255,90,90,.3)';
+        } else if(diff === 0){
+          deadlineHtml = `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);font-family:var(--mono)">⏰ AZI</span>`;
+          borderColor = 'rgba(255,159,74,.3)';
+        } else if(diff <= 3){
+          deadlineHtml = `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);font-family:var(--mono)">în ${diff}z</span>`;
+        } else {
+          deadlineHtml = `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:var(--surface2);color:var(--text2);font-family:var(--mono)">în ${diff}z</span>`;
+        }
+      }
+
+      const dlFmt = t.deadline ? (()=>{const d=new Date(t.deadline);return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;})() : '—';
+
+      // Numele celui care e asignat
+      const asignatUser = QUICK_USERS_SERVICE.find(u=>u.username===t.asignat);
+      const asignatName = asignatUser ? asignatUser.name : (t.asignat||'?');
+
+      // Butoane: Editează (doar pentru șef și creator), Marchează finalizată (pentru asignat sau șef)
+      const sef = isSrvSef();
+      const canEdit = sef || (currentUser && t.createdBy === currentUser.name);
+      const canComplete = t.status !== 'done' && (sef || (currentUser && t.asignat === currentUser.username));
+
+      let actions = '';
+      if(canComplete){
+        actions += `<button onclick="srvOpenComplete(${t.id})" style="background:var(--accent);border:none;color:#0f0f0f;cursor:pointer;font-size:12px;padding:8px 14px;border-radius:4px;font-weight:500;font-family:inherit">✓ Marchează finalizată</button>`;
+      }
+      if(canEdit){
+        actions += `<button onclick="srvOpenEditTask(${t.id})" style="background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-size:12px;padding:7px 12px;border-radius:4px;font-family:inherit">✎ Editează</button>`;
+      }
+
+      return `<div style="background:var(--surface);border:1px solid ${borderColor};border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${tipColor}"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="tip-badge tip-${t.masinaTip||'unknown'}">${t.masinaTip||'?'}</span>
+            <span style="font-family:var(--mono);font-size:13px;font-weight:500">${t.masinaNr}</span>
+          </div>
+          ${deadlineHtml}
+        </div>
+        ${driver ? `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Șofer curent</div><div style="font-size:13px;color:var(--text2);margin-bottom:10px">${driver.sofer}</div>` : ''}
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">De făcut</div>
+        <div style="font-size:14px;color:var(--text);margin-bottom:10px;line-height:1.5">${t.descriere||'—'}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2);margin-bottom:12px;padding-top:10px;border-top:1px solid var(--border)">
+          <span>👤 ${asignatName}</span>
+          <span style="font-family:var(--mono)">${dlFmt}</span>
+        </div>
+        ${t.createdBy ? `<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Creat de ${t.createdBy}</div>` : ''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${actions}</div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+function srvOpenAddTask(){
+  if(!isSrvSef()){ toast('Doar șefii pot adăuga sarcini'); return; }
+  editingTaskId = null;
+  document.getElementById('srv-task-title').textContent = 'Sarcină nouă';
+  document.getElementById('srv-task-sub').textContent = '';
+  document.getElementById('srv-task-delete-btn').style.display = 'none';
+
+  // Populez dropdown mașini
+  const sortedMasini = masini.slice().sort((a,b)=>(a.nr||'').localeCompare(b.nr||''));
+  document.getElementById('srv-task-masina').innerHTML = '<option value="">— alege mașina —</option>' +
+    sortedMasini.map(m=>`<option value="${m.id}">${m.nr} (${m.tip||'?'})</option>`).join('');
+  document.getElementById('srv-task-masina-info').style.display = 'none';
+
+  document.getElementById('srv-task-asignat').value = 'ion-srv';
+  document.getElementById('srv-task-deadline').value = '';
+  document.getElementById('srv-task-descriere').value = '';
+
+  document.getElementById('srv-modal-task').classList.add('open');
+}
+
+function srvOpenEditTask(id){
+  const t = taskuri.find(x=>x.id===id);
+  if(!t) return;
+  if(!isSrvSef() && t.createdBy !== currentUser?.name){ toast('Nu ai acces'); return; }
+  editingTaskId = id;
+  document.getElementById('srv-task-title').textContent = 'Editează sarcina';
+  document.getElementById('srv-task-sub').textContent = `${t.masinaNr} · pentru ${(QUICK_USERS_SERVICE.find(u=>u.username===t.asignat)||{}).name||t.asignat}`;
+  document.getElementById('srv-task-delete-btn').style.display = isSrvSef() ? '' : 'none';
+
+  const sortedMasini = masini.slice().sort((a,b)=>(a.nr||'').localeCompare(b.nr||''));
+  document.getElementById('srv-task-masina').innerHTML = sortedMasini.map(m=>`<option value="${m.id}"${m.id===t.masinaId?' selected':''}>${m.nr} (${m.tip||'?'})</option>`).join('');
+
+  // Afișez info șofer curent
+  updateSrvTaskMasinaInfo();
+
+  document.getElementById('srv-task-asignat').value = t.asignat || 'ion-srv';
+  document.getElementById('srv-task-deadline').value = t.deadline || '';
+  document.getElementById('srv-task-descriere').value = t.descriere || '';
+
+  document.getElementById('srv-modal-task').classList.add('open');
+}
+
+function updateSrvTaskMasinaInfo(){
+  const sel = document.getElementById('srv-task-masina');
+  const info = document.getElementById('srv-task-masina-info');
+  if(!sel || !info) return;
+  const masinaId = parseInt(sel.value);
+  if(!masinaId){ info.style.display = 'none'; return; }
+  const driver = getCurrentDriverForMasina(masinaId);
+  if(!driver){ info.style.display = 'none'; return; }
+  info.style.display = '';
+  info.innerHTML = `Șofer curent: <strong style="color:var(--text)">${driver.sofer}</strong>`;
+}
+
+function srvCloseTaskModal(){
+  document.getElementById('srv-modal-task').classList.remove('open');
+  editingTaskId = null;
+}
+
+function srvSaveTask(){
+  const masinaId = parseInt(document.getElementById('srv-task-masina').value);
+  const asignat = document.getElementById('srv-task-asignat').value;
+  const deadline = document.getElementById('srv-task-deadline').value;
+  const descriere = document.getElementById('srv-task-descriere').value.trim();
+
+  if(!masinaId){ toast('Alege mașina'); return; }
+  if(!asignat){ toast('Alege cui îi atribui sarcina'); return; }
+  if(!descriere){ toast('Adaugă descrierea'); return; }
+
+  const m = masini.find(x=>x.id===masinaId);
+  if(!m){ toast('Mașină inexistentă'); return; }
+
+  if(editingTaskId){
+    const t = taskuri.find(x=>x.id===editingTaskId);
+    if(!t) return;
+    t.masinaId = m.id;
+    t.masinaNr = m.nr;
+    t.masinaTip = m.tip;
+    t.asignat = asignat;
+    t.deadline = deadline || null;
+    t.descriere = descriere;
+    t.editedBy = currentUser?.name || 'unknown';
+    t.editedAt = new Date().toISOString();
+    toast('Sarcină salvată');
+  } else {
+    taskuri.push({
+      id: taskIdCtr++,
+      masinaId: m.id,
+      masinaNr: m.nr,
+      masinaTip: m.tip,
+      asignat,
+      deadline: deadline || null,
+      descriere,
+      status: 'pending',
+      createdBy: currentUser?.name || 'unknown',
+      createdByUsername: currentUser?.username || '',
+      createdAt: new Date().toISOString()
+    });
+    toast('Sarcină creată');
+  }
+
+  srvCloseTaskModal();
+  saveToCloud();
+  renderSrvTaskuri();
+}
+
+function srvDeleteTask(){
+  if(!isSrvSef()){ toast('Doar șefii pot șterge sarcini'); return; }
+  if(!confirm('Ștergi sarcina?')) return;
+  taskuri = taskuri.filter(x=>x.id!==editingTaskId);
+  srvCloseTaskModal();
+  saveToCloud();
+  renderSrvTaskuri();
+  toast('Sarcină ștearsă');
+}
+
+// Marcare task ca finalizat — creează automat reparația
+let completingTaskId = null;
+function srvOpenComplete(id){
+  const t = taskuri.find(x=>x.id===id);
+  if(!t) return;
+  // Doar asignatul sau șeful poate finaliza
+  if(!isSrvSef() && t.asignat !== currentUser?.username){ toast('Nu ești asignat la această sarcină'); return; }
+  completingTaskId = id;
+  document.getElementById('srv-complete-sub').textContent = `${t.masinaNr} · ${t.descriere}`;
+  document.getElementById('srv-complete-km').value = '';
+  document.getElementById('srv-complete-cost').value = '';
+  document.getElementById('srv-complete-obs').value = '';
+  document.getElementById('srv-modal-complete').classList.add('open');
+}
+
+function srvCloseComplete(){
+  document.getElementById('srv-modal-complete').classList.remove('open');
+  completingTaskId = null;
+}
+
+function srvFinalizeTask(){
+  const t = taskuri.find(x=>x.id===completingTaskId);
+  if(!t) return;
+  const km = document.getElementById('srv-complete-km').value;
+  const cost = document.getElementById('srv-complete-cost').value;
+  const obs = document.getElementById('srv-complete-obs').value.trim();
+
+  // Marchez taskul ca finalizat
+  t.status = 'done';
+  t.completedBy = currentUser?.name || 'unknown';
+  t.completedByUsername = currentUser?.username || '';
+  t.completedAt = new Date().toISOString();
+
+  // Creez reparația automată
+  const today = new Date();
+  const dataStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  reparatii.push({
+    id: repIdCtr++,
+    masinaId: t.masinaId,
+    masinaNr: t.masinaNr,
+    masinaTip: t.masinaTip,
+    data: dataStr,
+    km: km ? Number(km) : null,
+    descriere: t.descriere,
+    cost: cost ? Number(cost) : 0,
+    obs,
+    status: 'done',
+    fromTaskId: t.id,
+    addedBy: currentUser?.name || 'unknown',
+    addedByUsername: currentUser?.username || '',
+    addedAt: new Date().toISOString()
+  });
+
+  srvCloseComplete();
+  saveToCloud();
+  renderSrvAll();
+  toast('Sarcină finalizată — reparație adăugată în istoric');
+}
+
+// Auto-update info șofer la schimbare mașină în modalul task
+document.addEventListener('change', e=>{
+  if(e.target.id === 'srv-task-masina') updateSrvTaskMasinaInfo();
+});
+
+// Click în afara modalurilor = închide
+document.getElementById('srv-modal-task').addEventListener('click', e=>{
+  if(e.target.id === 'srv-modal-task') srvCloseTaskModal();
+});
+document.getElementById('srv-modal-complete').addEventListener('click', e=>{
+  if(e.target.id === 'srv-modal-complete') srvCloseComplete();
+});
 
 function updateSrvStats(){
   const active = reparatii.filter(r=>r.status==='active').length;
   const done = reparatii.filter(r=>r.status==='done').length;
   const totalCost = reparatii.reduce((sum,r)=>sum + (Number(r.cost)||0), 0);
+  const tasksActive = taskuri.filter(t=>t.status!=='done').length;
+  const el1=document.getElementById('srv-stat-tasks'); if(el1) el1.textContent = tasksActive;
   document.getElementById('srv-stat-active').textContent = active;
   document.getElementById('srv-stat-done').textContent = done;
   document.getElementById('srv-stat-cost').textContent = totalCost.toFixed(0);
@@ -2502,6 +2937,15 @@ window.srvDeleteAll=srvDeleteAll;
 window.srvExport=srvExport;
 window.renderSrvIstoric=renderSrvIstoric;
 window.renderSrvMasini=renderSrvMasini;
+window.setTaskFilter=setTaskFilter;
+window.srvOpenAddTask=srvOpenAddTask;
+window.srvOpenEditTask=srvOpenEditTask;
+window.srvCloseTaskModal=srvCloseTaskModal;
+window.srvSaveTask=srvSaveTask;
+window.srvDeleteTask=srvDeleteTask;
+window.srvOpenComplete=srvOpenComplete;
+window.srvCloseComplete=srvCloseComplete;
+window.srvFinalizeTask=srvFinalizeTask;
 
 // Enter key pentru login
 document.getElementById('login-password').addEventListener('keypress',e=>{if(e.key==='Enter')doAuth();});
