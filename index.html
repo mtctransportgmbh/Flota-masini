@@ -194,6 +194,12 @@ button{font-family:inherit;}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 18px;font-size:13px;z-index:400;box-shadow:0 4px 12px rgba(0,0,0,.4);max-width:90vw;opacity:0;transition:opacity .2s;pointer-events:none;}
 .toast.show{opacity:1;}
 
+/* ── ROL MECANIC (Ion/Vasile) — ascund costuri ── */
+body.srv-mecanic .srv-cost-field,
+body.srv-mecanic .srv-cost-display {
+  display: none !important;
+}
+
 /* ── ROL USER (non-admin) — ascund controale de editare ── */
 body.user-mode .icon-btn,
 body.user-mode .log-edit-btn,
@@ -607,7 +613,7 @@ body.user-mode .log-mobile-card {
       <div class="hstat"><div class="hstat-val" id="srv-stat-tasks" style="color:var(--t6)">0</div><div class="hstat-label">Sarcini</div></div>
       <div class="hstat"><div class="hstat-val" id="srv-stat-active" style="color:var(--t6)">0</div><div class="hstat-label">Active</div></div>
       <div class="hstat"><div class="hstat-val" id="srv-stat-done" style="color:var(--accent)">0</div><div class="hstat-label">Finalizate</div></div>
-      <div class="hstat"><div class="hstat-val" id="srv-stat-cost" style="color:var(--text)">0</div><div class="hstat-label">Cost €</div></div>
+      <div class="hstat srv-cost-display"><div class="hstat-val" id="srv-stat-cost" style="color:var(--text)">0</div><div class="hstat-label">Cost €</div></div>
     </div>
     <div class="user-chip" onclick="showSrvUserMenu()">
       <div class="sync-indicator" id="srv-sync-dot"></div>
@@ -681,7 +687,7 @@ body.user-mode .log-mobile-card {
         <input id="srv-new-descriere" placeholder="ex: schimbat plăcuțe frână" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;outline:none">
       </div>
 
-      <div style="margin-bottom:14px">
+      <div class="srv-cost-field" style="margin-bottom:14px">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Cost (€)</div>
         <input id="srv-new-cost" type="number" step="0.01" placeholder="0.00" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:14px;padding:10px 12px;outline:none">
       </div>
@@ -778,7 +784,7 @@ body.user-mode .log-mobile-card {
         <div class="modal-label">Kilometraj (km)</div>
         <input id="srv-complete-km" type="number" placeholder="0">
       </div>
-      <div class="modal-field">
+      <div class="modal-field srv-cost-field">
         <div class="modal-label">Cost (€)</div>
         <input id="srv-complete-cost" type="number" step="0.01" placeholder="0.00">
       </div>
@@ -821,7 +827,7 @@ body.user-mode .log-mobile-card {
       <div class="modal-label">Descriere</div>
       <input id="srv-edit-descriere">
     </div>
-    <div class="modal-field">
+    <div class="modal-field srv-cost-field">
       <div class="modal-label">Cost (€)</div>
       <input id="srv-edit-cost" type="number" step="0.01">
     </div>
@@ -854,6 +860,8 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, si
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getMessaging, getToken, onMessage }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 // Configurația vine din config.js (încărcat mai sus)
 const firebaseConfig = window.FIREBASE_CONFIG;
@@ -894,6 +902,16 @@ if (!firebaseConfig || !firebaseConfig.apiKey) {
     setDoc,
     onSnapshot
   };
+
+  // Inițializare Messaging pentru notificări push
+  try {
+    const messaging = getMessaging(app);
+    window.fbMessaging = messaging;
+    window.fbGetToken = getToken;
+    window.fbOnMessage = onMessage;
+  } catch(e) {
+    console.log('Messaging nu e disponibil:', e.message);
+  }
 
   // Pornește aplicația
   window.dispatchEvent(new Event('firebase-ready'));
@@ -1153,6 +1171,8 @@ async function doAuth(){
 
 async function doLogout(){
   if(!confirm('Ieși din cont?'))return;
+  currentMode = null;
+  try{ localStorage.removeItem('mtc_selected_mode'); }catch(e){}
   await window.fbHelpers.signOut(window.fbAuth);
   location.reload();
 }
@@ -1189,17 +1209,21 @@ window.addEventListener('firebase-ready', ()=>{
       document.getElementById('mode-select').style.display='none';
 
       if(currentMode === 'service'){
-        // Pornesc aplicația Service
+        // Pornesc aplicația Service — ascund complet Flotă
         document.getElementById('app').style.display='none';
         document.getElementById('app-service').style.display='';
         document.getElementById('srv-user-name').textContent=currentUser.name;
         document.getElementById('srv-user-avatar').textContent=initials(currentUser.name);
         document.getElementById('srv-user-avatar').style.background=avc(currentUser.name)+'33';
         document.getElementById('srv-user-avatar').style.color=avc(currentUser.name);
+        document.getElementById('mode-select').style.display='none';
+        // Notificări push și briefing de dimineață
+        setTimeout(()=>{ initNotifications(); checkMorningBriefing(); }, 2000);
       } else {
-        // Pornesc aplicația Flotă
+        // Pornesc aplicația Flotă — ascund complet Service
         document.getElementById('app').style.display='';
         document.getElementById('app-service').style.display='none';
+        document.getElementById('mode-select').style.display='none';
         document.getElementById('user-name').textContent=currentUser.name;
         document.getElementById('user-avatar').textContent=initials(currentUser.name);
         document.getElementById('user-avatar').style.background=avc(currentUser.name)+'33';
@@ -1398,6 +1422,8 @@ function hydrateFromCloud(d){
   // Render și Service dacă suntem în modul Service
   if(currentMode === 'service'){
     renderSrvAll();
+    checkForNewTasks();
+    checkForCompletedTasks();
   }
 }
 
@@ -2243,8 +2269,173 @@ function renderAdmin(){
   document.getElementById('admin-list-input').value = admins.join(', ');
 }
 // ═════════════════════════════════════════════════════════════
-// ── MODUL SERVICE ────────────────────────────────────────────
+// ── NOTIFICĂRI PUSH ──────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════
+// VAPID_KEY: obții din Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+const VAPID_KEY = 'BPgUUaz9-9RN43J8xtT4vMnYAmklfb4YUx96grA2mh6ASYk_84AbkwConXMRqic1BnFXFl16OGDD-5gDVAEOUs8';
+
+// Solicită permisiunea și înregistrează token-ul push
+async function initNotifications(){
+  if(!('Notification' in window) || !('serviceWorker' in navigator)) return;
+  if(!window.fbMessaging) return;
+  if(VAPID_KEY === 'INLOCUIESTE_CU_VAPID_KEY_DIN_FIREBASE') return;
+
+  try {
+    const permission = await Notification.requestPermission();
+    if(permission !== 'granted') return;
+
+    const sw = await navigator.serviceWorker.ready;
+    const token = await window.fbGetToken(window.fbMessaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: sw
+    });
+
+    if(token && currentUser){
+      // Salvez token-ul în knownUsers ca să știu la cine să trimit
+      const existing = knownUsers.find(u => u.username === currentUser.username);
+      if(existing && existing.pushToken !== token){
+        existing.pushToken = token;
+        saveToCloud();
+      }
+    }
+  } catch(e) {
+    console.log('Notificări push nu sunt disponibile:', e.message);
+  }
+
+  // Ascultă notificări când aplicația e deschisă
+  if(window.fbOnMessage && window.fbMessaging){
+    window.fbOnMessage(window.fbMessaging, (payload)=>{
+      const { title, body } = payload.notification || {};
+      if(title) showInAppNotification(title, body);
+    });
+  }
+}
+
+// Notificare vizuală în aplicație (când e deschisă)
+function showInAppNotification(title, body){
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;top:16px;right:16px;left:16px;z-index:500;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;padding:14px 16px;box-shadow:0 4px 16px rgba(0,0,0,.4);max-width:380px;margin:0 auto;`;
+  el.innerHTML = `<div style="font-weight:500;font-size:14px;margin-bottom:4px">🔔 ${title}</div><div style="font-size:13px;color:var(--text2)">${body||''}</div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 5000);
+}
+
+// Rezumat de dimineață pentru Ion/Vasile — apare la prima deschidere a zilei
+function checkMorningBriefing(){
+  if(currentMode !== 'service') return;
+  const role = getSrvRole(currentUser?.username);
+  if(role !== 'mecanic') return;
+
+  const today = new Date().toDateString();
+  const lastBriefKey = 'mtc_last_briefing_' + (currentUser?.username||'');
+  let lastBriefDate = '';
+  try{ lastBriefDate = localStorage.getItem(lastBriefKey)||''; }catch(e){}
+  if(lastBriefDate === today) return; // deja arătat azi
+
+  const myTasks = taskuri.filter(t =>
+    t.asignat === currentUser.username &&
+    t.status !== 'done'
+  );
+
+  if(myTasks.length === 0) return;
+
+  // Sortez: întârziate, de azi, viitoare
+  const todayStr = new Date().toISOString().slice(0,10);
+  const overdue = myTasks.filter(t => t.deadline && t.deadline < todayStr);
+  const todayTasks = myTasks.filter(t => t.deadline === todayStr);
+  const upcoming = myTasks.filter(t => !t.deadline || t.deadline > todayStr);
+
+  let msg = `Bună dimineața, ${currentUser.name}! 👋\n\n`;
+  if(overdue.length) msg += `⚠️ ÎNTÂRZIATE (${overdue.length}): ${overdue.map(t=>t.masinaNr).join(', ')}\n\n`;
+  if(todayTasks.length) msg += `📅 AZI (${todayTasks.length}): ${todayTasks.map(t=>t.masinaNr).join(', ')}\n\n`;
+  if(upcoming.length) msg += `📋 Alte sarcini active: ${upcoming.length}`;
+
+  // Afișez modal de briefing
+  showMorningBriefingModal(msg, myTasks.length, overdue.length, todayTasks.length);
+
+  try{ localStorage.setItem(lastBriefKey, today); }catch(e){}
+}
+
+function showMorningBriefingModal(msg, total, overdue, todayCount){
+  const el = document.createElement('div');
+  el.className = 'modal-overlay open';
+  el.id = 'morning-briefing-modal';
+  el.innerHTML = `<div class="modal" style="max-width:400px">
+    <div style="font-size:22px;margin-bottom:8px">☀️</div>
+    <div class="modal-title">Bună dimineața, ${currentUser.name}!</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Rezumat sarcini pentru azi</div>
+    ${overdue ? `<div style="background:rgba(255,90,90,.08);border:1px solid rgba(255,90,90,.25);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:13px">⚠️ <strong style="color:var(--danger)">${overdue} sarcini întârziate</strong></div>` : ''}
+    ${todayCount ? `<div style="background:rgba(255,159,74,.08);border:1px solid rgba(255,159,74,.25);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:13px">📅 <strong style="color:var(--t6)">${todayCount} sarcini cu termen azi</strong></div>` : ''}
+    <div style="background:var(--surface2);border-radius:6px;padding:10px 14px;font-size:13px;color:var(--text2)">Total sarcini active: <strong style="color:var(--text)">${total}</strong></div>
+    <div class="modal-actions" style="margin-top:18px">
+      <button class="btn" onclick="document.getElementById('morning-briefing-modal').remove()">Închide</button>
+      <button class="btn btn-primary" onclick="document.getElementById('morning-briefing-modal').remove();showSrvTab('taskuri')">Vezi sarcinile</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+}
+
+// Notificare locală (fără server) — funcționează dacă aplicația e deschisă
+function sendLocalNotification(title, body){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){
+    new Notification(title, { body, icon: './icon-192.png' });
+  }
+}
+
+// Verifică sarcini noi pentru user-ul curent (la fiecare sync din cloud)
+let lastKnownTaskIds = new Set();
+function checkForNewTasks(){
+  if(currentMode !== 'service') return;
+  if(!currentUser) return;
+
+  const myTasks = taskuri.filter(t =>
+    t.asignat === currentUser.username &&
+    t.status !== 'done'
+  );
+
+  const newTasks = myTasks.filter(t => !lastKnownTaskIds.has(t.id));
+
+  if(newTasks.length > 0 && lastKnownTaskIds.size > 0){
+    // Există sarcini noi față de ultima verificare
+    newTasks.forEach(t => {
+      sendLocalNotification(
+        `Sarcină nouă — ${t.masinaNr}`,
+        `${t.descriere}${t.deadline ? ` · termen: ${t.deadline}` : ''}`
+      );
+    });
+  }
+
+  // Actualizez setul de task-uri cunoscute
+  lastKnownTaskIds = new Set(myTasks.map(t => t.id));
+}
+
+// Notificare pentru șefi când un mecanic finalizează o sarcină
+function checkForCompletedTasks(){
+  if(currentMode !== 'service') return;
+  if(!isSrvSef()) return;
+
+  const recentlyDone = taskuri.filter(t => {
+    if(t.status !== 'done' || !t.completedAt) return false;
+    const completedAt = new Date(t.completedAt);
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+    return completedAt > fiveMinAgo;
+  });
+
+  recentlyDone.forEach(t => {
+    const notifKey = 'notif_done_' + t.id;
+    let alreadyNotified = false;
+    try{ alreadyNotified = !!localStorage.getItem(notifKey); }catch(e){}
+    if(!alreadyNotified){
+      const mecName = (QUICK_USERS_SERVICE.find(u=>u.username===t.asignat)||{}).name || t.asignat;
+      sendLocalNotification(
+        `${mecName} a finalizat o sarcină`,
+        `${t.masinaNr} · ${t.descriere}`
+      );
+      try{ localStorage.setItem(notifKey, '1'); }catch(e){}
+    }
+  });
+}
 
 function showSrvTab(name){
   ['active','taskuri','istoric','adauga','masini','admin'].forEach(t=>{
@@ -2647,7 +2838,7 @@ function srvCardHtml(r, allowEdit){
         <div>${dataFmt}${r.km?` · ${Number(r.km).toLocaleString()} km`:''}</div>
         ${r.addedBy?`<div style="margin-top:2px">de ${r.addedBy}</div>`:''}
       </div>
-      <div style="font-family:var(--mono);font-size:15px;font-weight:500;color:var(--accent);white-space:nowrap">${(Number(r.cost)||0).toFixed(2)} €</div>
+      <div style="font-family:var(--mono);font-size:15px;font-weight:500;color:var(--accent);white-space:nowrap" class="srv-cost-display">${(Number(r.cost)||0).toFixed(2)} €</div>
     </div>
   </div>`;
 }
@@ -2774,7 +2965,7 @@ function renderSrvMasini(){
         <div style="font-family:var(--mono);font-size:15px;font-weight:500;margin-bottom:10px">${m.nr}</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding-top:8px;border-top:1px solid var(--border)">
           <span>Total reparații: <strong style="color:var(--text)">${totalCount}</strong></span>
-          <span style="font-family:var(--mono);color:var(--accent)">${totalCost.toFixed(0)} €</span>
+          <span style="font-family:var(--mono);color:var(--accent)" class="srv-cost-display">${totalCost.toFixed(0)} €</span>
         </div>
       </div>`;
     }).join('') + '</div>';

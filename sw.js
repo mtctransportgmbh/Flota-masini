@@ -1,8 +1,8 @@
 // Service worker — strategie "network-first" cu fallback la cache
 // Asta înseamnă: mereu încearcă rețeaua întâi (vezi versiunea cea mai nouă),
 // și folosește cache-ul DOAR dacă ești offline.
-const CACHE = 'flota-v2';
-const ASSETS = ['./', './index.html', './manifest.json', './config.js'];
+const CACHE = 'flota-v3';
+const ASSETS = ['./', './index.html', './manifest.json', './config.js', './firebase-messaging-sw.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
