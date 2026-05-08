@@ -635,6 +635,7 @@ body.user-mode .log-mobile-card {
   <button class="tab-btn" onclick="showSrvTab('adauga')">+ Adaugă</button>
   <button class="tab-btn" onclick="showSrvTab('masini')">Mașini</button>
   <button class="tab-btn" onclick="showSrvTab('stoc')">🔩 Stoc</button>
+  <button class="tab-btn" onclick="showSrvTab('garantie')">🛡 Garanție</button>
   <button class="tab-btn" id="srv-tab-btn-backup" onclick="showSrvTab('backup')" style="display:none">💾 Backup</button>
   <button class="tab-btn" id="srv-tab-btn-admin" onclick="showSrvTab('admin')" style="display:none">⚙ Admin</button>
 </div>
@@ -734,7 +735,16 @@ body.user-mode .log-mobile-card {
     <div id="stoc-section"></div>
   </div>
 
-  <!-- Tab Backup (doar admin) -->
+  <!-- Tab Garanție -->
+  <div id="srv-tab-garantie" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:13px;color:var(--text2)">Mașini în garanție activă</div>
+      <button class="btn-add-log" id="garantie-add-btn" onclick="garantieOpenAdd()">+ Adaugă mașină în garanție</button>
+    </div>
+    <div id="garantie-section"></div>
+  </div>
+
+  <!-- Tab Backup -->
   <div id="srv-tab-backup" style="display:none">
     <div class="settings-section">
       <div class="settings-title">Backup date</div>
@@ -930,7 +940,80 @@ body.user-mode .log-mobile-card {
   </div>
 </div>
 
-<!-- Modal adăugare cost la reparație finalizată (pentru șefi) -->
+<!-- Modal adăugare/editare garanție -->
+<div class="modal-overlay" id="srv-modal-garantie">
+  <div class="modal">
+    <div class="modal-title" id="garantie-modal-title">Adaugă mașină în garanție</div>
+
+    <div class="modal-field">
+      <div class="modal-label">Mașină</div>
+      <select id="garantie-masina" onchange="garantieUpdateMasina()">
+        <option value="">— alege mașina —</option>
+      </select>
+    </div>
+
+    <div class="modal-field">
+      <div class="modal-label">Service autorizat</div>
+      <input id="garantie-service" placeholder="ex: Mercedes-Benz Dealer München">
+    </div>
+
+    <div class="modal-field">
+      <div class="modal-label">Data expirare garanție</div>
+      <input id="garantie-expirare" type="date">
+    </div>
+
+    <div class="modal-field">
+      <div class="modal-label">Note (opțional)</div>
+      <input id="garantie-note" placeholder="ex: garanție extinsă 3 ani">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="garantie-delete-btn" onclick="garantieDelete()" style="display:none">Scoate din garanție</button>
+      <button class="btn" onclick="garantieCloseModal()">Anulează</button>
+      <button class="btn btn-primary" onclick="garantieSave()">Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal adăugare intervenție garanție -->
+<div class="modal-overlay" id="srv-modal-garantie-interventie">
+  <div class="modal">
+    <div class="modal-title">Adaugă intervenție</div>
+    <div class="modal-sub" id="garantie-int-sub"></div>
+
+    <div class="modal-field">
+      <div class="modal-label">Tip intervenție</div>
+      <select id="garantie-int-tip">
+        <option value="Schimb ulei">🛢 Schimb ulei</option>
+        <option value="Inspecție ITP">📋 Inspecție ITP</option>
+        <option value="Revizie autorizată">🔧 Revizie autorizată</option>
+      </select>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
+        <div class="modal-label">Data</div>
+        <input id="garantie-int-data" type="date">
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">Km</div>
+        <input id="garantie-int-km" type="number" placeholder="0">
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <div class="modal-label">Observații (opțional)</div>
+      <input id="garantie-int-obs" placeholder="detalii...">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="garantieCloseInterventie()">Anulează</button>
+      <button class="btn btn-primary" onclick="garantieSaveInterventie()">Adaugă</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal adăugare cost la reparație finalizată -->
 <div class="modal-overlay" id="srv-modal-add-cost">
   <div class="modal">
     <div class="modal-title">Adaugă cost reparație</div>
@@ -1087,10 +1170,12 @@ let taskuri=[];
 let taskIdCtr=1;
 let editingTaskId=null;
 let lastKnownTaskIds = new Set();
-let stoc=[];        // {id, nume, categorie, cantitate, pret, compatibil, addedAt}
+let stoc=[];
 let stocIdCtr=1;
-let backupuri=[];   // {id, timestamp, triggerBy, snapshot}
+let backupuri=[];
 let backupIdCtr=1;
+let garantii=[];   // {id, masinaId, masinaNr, masinaTip, dataExpirare, serviceNume, interventii[], note, activa}
+let garantiiIdCtr=1;
 let currentMode = null;
 
 // Useri prestabiliți pentru fiecare modul
@@ -1386,6 +1471,7 @@ window.addEventListener('firebase-ready', ()=>{
           requestNotificationPermission();
           initNotifications();
           checkMorningBriefing();
+          checkGarantiiExpirare();
         }, 2000);
       } else {
         // Pornesc aplicația Flotă — ascund complet Service
@@ -1555,9 +1641,10 @@ function hydrateFromCloud(d){
   // Stoc piese
   stoc = (d.stoc||[]).map(s=>({...s}));
   stocIdCtr = d.stocIdCtr || 1;
-  // Backup-uri
   backupuri = (d.backupuri||[]).map(b=>({id:b.id,timestamp:b.timestamp,triggerBy:b.triggerBy,size:b.size||0}));
   backupIdCtr = d.backupIdCtr || 1;
+  garantii = (d.garantii||[]).map(g=>({...g}));
+  garantiiIdCtr = d.garantiiIdCtr || 1;
 
   // Verifică forced logout pentru user-ul curent
   if(currentUser && window._currentForcedLogouts[currentUser.username]){
@@ -1806,6 +1893,8 @@ function saveToCloud(){
       stocIdCtr,
       backupuri: backupuri.map(b=>({id:b.id,timestamp:b.timestamp,triggerBy:b.triggerBy,size:b.size||0})),
       backupIdCtr,
+      garantii,
+      garantiiIdCtr,
       lastModifiedBy: currentUser?.name || 'unknown',
       lastModifiedAt: new Date().toISOString()
     };
@@ -2565,55 +2654,73 @@ function showInAppNotification(title, body){
 }
 
 // Rezumat de dimineață pentru Ion/Vasile — apare la prima deschidere a zilei
-function checkMorningBriefing(){
-  if(currentMode !== 'service') return;
-  const role = getSrvRole(currentUser?.username);
-  if(role !== 'mecanic') return;
-
-  const today = new Date().toDateString();
-  const lastBriefKey = 'mtc_last_briefing_' + (currentUser?.username||'');
-  let lastBriefDate = '';
-  try{ lastBriefDate = localStorage.getItem(lastBriefKey)||''; }catch(e){}
-  if(lastBriefDate === today) return; // deja arătat azi
-
-  const myTasks = taskuri.filter(t =>
-    t.asignat === currentUser.username &&
-    t.status !== 'done'
-  );
-
-  if(myTasks.length === 0) return;
-
-  // Sortez: întârziate, de azi, viitoare
-  const todayStr = new Date().toISOString().slice(0,10);
-  const overdue = myTasks.filter(t => t.deadline && t.deadline < todayStr);
-  const todayTasks = myTasks.filter(t => t.deadline === todayStr);
-  const upcoming = myTasks.filter(t => !t.deadline || t.deadline > todayStr);
-
-  let msg = `Bună dimineața, ${currentUser.name}! 👋\n\n`;
-  if(overdue.length) msg += `⚠️ ÎNTÂRZIATE (${overdue.length}): ${overdue.map(t=>t.masinaNr).join(', ')}\n\n`;
-  if(todayTasks.length) msg += `📅 AZI (${todayTasks.length}): ${todayTasks.map(t=>t.masinaNr).join(', ')}\n\n`;
-  if(upcoming.length) msg += `📋 Alte sarcini active: ${upcoming.length}`;
-
-  // Afișez modal de briefing
-  showMorningBriefingModal(msg, myTasks.length, overdue.length, todayTasks.length);
-
-  try{ localStorage.setItem(lastBriefKey, today); }catch(e){}
+function getGreeting(){
+  const h = new Date().getHours();
+  if(h < 12) return 'Bună dimineața';
+  if(h < 18) return 'Bună ziua';
+  return 'Bună seara';
 }
 
-function showMorningBriefingModal(msg, total, overdue, todayCount){
+function checkMorningBriefing(){
+  if(currentMode !== 'service') return;
+  if(!isSrvMecanic()) return;
+
+  // Arată la fiecare conectare — NU blocăm după prima afișare din zi
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  const todayTasks = taskuri.filter(t =>
+    t.asignat === currentUser.username &&
+    t.status !== 'done' &&
+    t.deadline === todayStr
+  );
+
+  // Afișez mereu la conectare — chiar dacă nu are sarcini azi
+  showMorningBriefingModal(todayTasks, todayStr);
+}
+
+function showMorningBriefingModal(todayTasks, todayStr){
+  // Dacă deja există un modal, îl închidem
+  const existing = document.getElementById('morning-briefing-modal');
+  if(existing) existing.remove();
+
+  const greeting = getGreeting();
+  const name = currentUser?.name || '';
+  const icon = greeting==='Bună dimineața' ? '☀️' : greeting==='Bună ziua' ? '🌤' : '🌙';
+
+  let tasksHtml = '';
+  if(!todayTasks.length){
+    tasksHtml = `<div style="background:var(--surface2);border-radius:6px;padding:14px;font-size:13px;color:var(--text2);text-align:center">
+      ✅ Nicio sarcină programată pentru azi
+    </div>`;
+  } else {
+    tasksHtml = todayTasks.map(t=>{
+      const m = masini.find(x=>x.id===t.masinaId);
+      const sofer = m?.sofer || '—';
+      const tipColor = t.masinaTip==='CRAFTER'?'var(--crafter)':t.masinaTip==='T6'?'var(--t6)':'#888';
+      return `<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${tipColor};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-family:var(--mono);font-size:13px;font-weight:500">${t.masinaNr}</span>
+          <span style="font-size:11px;padding:2px 7px;border-radius:3px;background:${tipColor}22;color:${tipColor};font-family:var(--mono)">${t.masinaTip||'?'}</span>
+        </div>
+        <div style="font-size:13px;color:var(--text);margin-bottom:4px">${t.descriere}</div>
+        <div style="font-size:11px;color:var(--text3)">Șofer: ${sofer}</div>
+      </div>`;
+    }).join('');
+  }
+
   const el = document.createElement('div');
   el.className = 'modal-overlay open';
   el.id = 'morning-briefing-modal';
-  el.innerHTML = `<div class="modal" style="max-width:400px">
-    <div style="font-size:22px;margin-bottom:8px">☀️</div>
-    <div class="modal-title">Bună dimineața, ${currentUser.name}!</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Rezumat sarcini pentru azi</div>
-    ${overdue ? `<div style="background:rgba(255,90,90,.08);border:1px solid rgba(255,90,90,.25);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:13px">⚠️ <strong style="color:var(--danger)">${overdue} sarcini întârziate</strong></div>` : ''}
-    ${todayCount ? `<div style="background:rgba(255,159,74,.08);border:1px solid rgba(255,159,74,.25);border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:13px">📅 <strong style="color:var(--t6)">${todayCount} sarcini cu termen azi</strong></div>` : ''}
-    <div style="background:var(--surface2);border-radius:6px;padding:10px 14px;font-size:13px;color:var(--text2)">Total sarcini active: <strong style="color:var(--text)">${total}</strong></div>
+  el.innerHTML = `<div class="modal" style="max-width:420px">
+    <div style="font-size:28px;margin-bottom:6px">${icon}</div>
+    <div class="modal-title">${greeting}, ${name}!</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">
+      Sarcinile tale pentru azi, <strong style="color:var(--text)">${todayStr.split('-').reverse().join('.')}</strong>
+    </div>
+    ${tasksHtml}
     <div class="modal-actions" style="margin-top:18px">
       <button class="btn" onclick="document.getElementById('morning-briefing-modal').remove()">Închide</button>
-      <button class="btn btn-primary" onclick="document.getElementById('morning-briefing-modal').remove();showSrvTab('taskuri')">Vezi sarcinile</button>
+      <button class="btn btn-primary" onclick="document.getElementById('morning-briefing-modal').remove();showSrvTab('taskuri')">📋 Toate sarcinile</button>
     </div>
   </div>`;
   document.body.appendChild(el);
@@ -2952,8 +3059,12 @@ function renderSrvmContent(masinaId){
   // Categorii importante — detectate după cuvinte cheie în descriere
   const CATEGORII = [
     { key:'ulei', label:'🛢 Schimb ulei', keywords:['ulei','oil'] },
-    { key:'placute', label:'🔴 Schimb plăcuțe', keywords:['plăcuțe','placute','placuțe','frân','frana','brake'] },
-    { key:'cauciucuri', label:'⚫ Schimb cauciucuri', keywords:['cauciuc','anvelop','roat','tyre','tire'] },
+    { key:'placute_fata', label:'🔴 Plăcuțe față', keywords:['plăcuțe față','placute fata','placuțe față','frână față','frana fata','brake front','față frân','fata frana'] },
+    { key:'placute_spate', label:'🔴 Plăcuțe spate', keywords:['plăcuțe spate','placute spate','placuțe spate','frână spate','frana spate','brake rear','spate frân','spate frana'] },
+    { key:'placute', label:'🔴 Plăcuțe (toate)', keywords:['plăcuțe','placute','placuțe','frân','frana','brake'] },
+    { key:'cauciucuri_fata', label:'⚫ Cauciucuri față', keywords:['cauciuc față','cauciuc fata','anvelop față','anvelop fata','roat față','roat fata','față cauciuc','fata cauciuc','front tyre','front tire'] },
+    { key:'cauciucuri_spate', label:'⚫ Cauciucuri spate', keywords:['cauciuc spate','anvelop spate','roat spate','spate cauciuc','rear tyre','rear tire'] },
+    { key:'cauciucuri', label:'⚫ Cauciucuri (toate)', keywords:['cauciuc','anvelop','roat','tyre','tire'] },
   ];
 
   function matchCat(descriere, keywords){
@@ -2999,7 +3110,7 @@ function renderSrvmContent(masinaId){
 
   // Separă în categorii
   const altele = [];
-  const catItems = {ulei:[], placute:[], cauciucuri:[]};
+  const catItems = {ulei:[], placute_fata:[], placute_spate:[], placute:[], cauciucuri_fata:[], cauciucuri_spate:[], cauciucuri:[]};
 
   reps.forEach(r=>{
     let matched = false;
@@ -3018,8 +3129,10 @@ function renderSrvmContent(masinaId){
     <div style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--accent)" class="srv-cost-display">Total: ${totalCost.toFixed(2)} €</div>
   </div>`;
 
-  // Cele 3 secțiuni importante
+  // Secțiuni importante — "toate" apare doar dacă nu există față/spate specifice
   CATEGORII.forEach(cat=>{
+    if(cat.key==='cauciucuri' && (catItems.cauciucuri_fata.length>0 || catItems.cauciucuri_spate.length>0)) return;
+    if(cat.key==='placute' && (catItems.placute_fata.length>0 || catItems.placute_spate.length>0)) return;
     html += buildSectiune(cat.label, catItems[cat.key]);
   });
 
@@ -3063,7 +3176,267 @@ function srvmAddRep(){
 
 function srvmClose(){document.getElementById('srv-modal-istoric-masina').classList.remove('open');currentSrvMasinaId=null;}
 
-// ── COST REPARAȚII (șefi) ─────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
+// ── GARANȚIE ─────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
+let editingGarantieId = null;
+let addingInterventieGarantieId = null;
+
+function renderGarantie(){
+  const sec = document.getElementById('garantie-section');
+  if(!sec) return;
+
+  // Buton adăugare vizibil pentru admin și șefi
+  const addBtn = document.getElementById('garantie-add-btn');
+  if(addBtn) addBtn.style.display = isSrvSef() ? '' : 'none';
+
+  const active = garantii.filter(g=>g.activa!==false);
+  const inactive = garantii.filter(g=>g.activa===false);
+
+  if(!active.length && !inactive.length){
+    sec.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px;text-align:center"><div style="font-size:32px;margin-bottom:10px">🛡</div><div style="font-size:14px;color:var(--text2)">Nicio mașină în garanție.</div></div>';
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate()+1);
+
+  function garantieCard(g){
+    const m = masini.find(x=>x.id===g.masinaId);
+    const tipColor = g.masinaTip==='CRAFTER'?'var(--crafter)':g.masinaTip==='T6'?'var(--t6)':'#888';
+    const exp = g.dataExpirare ? new Date(g.dataExpirare) : null;
+    exp && exp.setHours(0,0,0,0);
+
+    let expBadge = '';
+    let borderColor = 'var(--border)';
+    if(exp){
+      const diff = Math.floor((exp-today)/(1000*60*60*24));
+      if(diff<0){
+        expBadge=`<span style="font-size:11px;padding:3px 8px;border-radius:3px;background:rgba(255,90,90,.12);color:var(--danger);font-family:var(--mono)">EXPIRATĂ</span>`;
+        borderColor='rgba(255,90,90,.3)';
+      } else if(diff===0){
+        expBadge=`<span style="font-size:11px;padding:3px 8px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);font-family:var(--mono)">Expiră AZI</span>`;
+        borderColor='rgba(255,159,74,.4)';
+      } else if(diff<=30){
+        expBadge=`<span style="font-size:11px;padding:3px 8px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);font-family:var(--mono)">Expiră în ${diff}z</span>`;
+        borderColor='rgba(255,159,74,.2)';
+      } else {
+        expBadge=`<span style="font-size:11px;padding:3px 8px;border-radius:3px;background:rgba(200,245,66,.08);color:var(--accent);font-family:var(--mono)">Validă ${diff}z</span>`;
+      }
+    }
+
+    const expFmt = exp ? `${String(exp.getDate()).padStart(2,'0')}.${String(exp.getMonth()+1).padStart(2,'0')}.${exp.getFullYear()}` : '—';
+    const interventii = g.interventii||[];
+    const sef = isSrvSef();
+
+    const intRows = interventii.length ? interventii.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(iv=>{
+      const ivDt = iv.data ? iv.data.split('-').reverse().join('.') : '—';
+      const tipIcon = iv.tip==='Schimb ulei'?'🛢':iv.tip==='Inspecție ITP'?'📋':'🔧';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div style="color:var(--text)">${tipIcon} ${iv.tip}</div>
+        <div style="font-family:var(--mono);color:var(--text3)">${ivDt}${iv.km?' · '+Number(iv.km).toLocaleString()+' km':''}</div>
+      </div>`;
+    }).join('') : `<div style="font-size:12px;color:var(--text3);padding:6px 0;font-style:italic">Nicio intervenție înregistrată</div>`;
+
+    return `<div style="background:var(--surface);border:1px solid ${borderColor};border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${tipColor}"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span class="tip-badge tip-${g.masinaTip||'unknown'}">${g.masinaTip||'?'}</span>
+            <span style="font-family:var(--mono);font-size:15px;font-weight:500">${g.masinaNr}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text2)">${g.serviceNume||'—'}</div>
+          ${g.note?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${g.note}</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${expBadge}
+          <div style="font-size:11px;color:var(--text3)">Expiră: ${expFmt}</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">Intervenții la service (${interventii.length})</div>
+          ${sef?`<button onclick="garantieOpenInterventie(${g.id})" style="background:none;border:1px solid var(--border2);color:var(--accent);cursor:pointer;font-size:11px;padding:4px 10px;border-radius:4px;font-family:inherit">+ Adaugă</button>`:''}
+        </div>
+        ${intRows}
+      </div>
+
+      ${sef?`<div style="margin-top:10px;display:flex;gap:6px">
+        <button onclick="garantieOpenEdit(${g.id})" style="background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-size:12px;padding:6px 12px;border-radius:4px;font-family:inherit">✎ Editează</button>
+        <button onclick="garantieSetActiva(${g.id}, false)" style="background:none;border:1px solid rgba(255,90,90,.3);color:var(--danger);cursor:pointer;font-size:12px;padding:6px 12px;border-radius:4px;font-family:inherit">Scoate din garanție</button>
+      </div>`:''}
+    </div>`;
+  }
+
+  let html = active.map(garantieCard).join('');
+
+  if(inactive.length && isSrvSef()){
+    html += `<div style="font-size:12px;color:var(--text3);margin:16px 0 8px;border-top:1px solid var(--border);padding-top:14px">Ieșite din garanție (${inactive.length})</div>`;
+    html += inactive.map(g=>{
+      return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:6px;opacity:.6;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:13px"><span style="font-family:var(--mono)">${g.masinaNr}</span> · ${g.serviceNume||'—'}</div>
+        <button onclick="garantieSetActiva(${g.id}, true)" style="background:none;border:1px solid var(--border2);color:var(--accent);cursor:pointer;font-size:11px;padding:4px 10px;border-radius:4px;font-family:inherit">Reactivează</button>
+      </div>`;
+    }).join('');
+  }
+
+  sec.innerHTML = html;
+}
+
+function garantieOpenAdd(){
+  if(!isSrvSef()){toast('Doar șefii pot adăuga garanții');return;}
+  editingGarantieId = null;
+  document.getElementById('garantie-modal-title').textContent = 'Adaugă mașină în garanție';
+  document.getElementById('garantie-delete-btn').style.display = 'none';
+
+  const sortedMasini = masini.slice().sort((a,b)=>(a.nr||'').localeCompare(b.nr||''));
+  document.getElementById('garantie-masina').innerHTML =
+    '<option value="">— alege mașina —</option>' +
+    sortedMasini.map(m=>`<option value="${m.id}">${m.nr} (${m.tip||'?'})</option>`).join('');
+
+  document.getElementById('garantie-service').value='';
+  document.getElementById('garantie-expirare').value='';
+  document.getElementById('garantie-note').value='';
+  document.getElementById('srv-modal-garantie').classList.add('open');
+}
+
+function garantieOpenEdit(id){
+  if(!isSrvSef())return;
+  const g = garantii.find(x=>x.id===id);if(!g)return;
+  editingGarantieId = id;
+  document.getElementById('garantie-modal-title').textContent = 'Editează garanție';
+  document.getElementById('garantie-delete-btn').style.display = '';
+
+  const sortedMasini = masini.slice().sort((a,b)=>(a.nr||'').localeCompare(b.nr||''));
+  document.getElementById('garantie-masina').innerHTML =
+    sortedMasini.map(m=>`<option value="${m.id}"${m.id===g.masinaId?' selected':''}>${m.nr} (${m.tip||'?'})</option>`).join('');
+
+  document.getElementById('garantie-service').value = g.serviceNume||'';
+  document.getElementById('garantie-expirare').value = g.dataExpirare||'';
+  document.getElementById('garantie-note').value = g.note||'';
+  document.getElementById('srv-modal-garantie').classList.add('open');
+}
+
+function garantieCloseModal(){
+  document.getElementById('srv-modal-garantie').classList.remove('open');
+  editingGarantieId=null;
+}
+
+function garantieSave(){
+  const masinaId = parseInt(document.getElementById('garantie-masina').value);
+  const serviceNume = document.getElementById('garantie-service').value.trim();
+  const dataExpirare = document.getElementById('garantie-expirare').value;
+  if(!masinaId){toast('Alege mașina');return;}
+  if(!dataExpirare){toast('Adaugă data de expirare');return;}
+  const m = masini.find(x=>x.id===masinaId);if(!m)return;
+
+  if(editingGarantieId){
+    const g = garantii.find(x=>x.id===editingGarantieId);if(!g)return;
+    g.masinaId=m.id; g.masinaNr=m.nr; g.masinaTip=m.tip;
+    g.serviceNume=serviceNume; g.dataExpirare=dataExpirare;
+    g.note=document.getElementById('garantie-note').value.trim();
+    toast('Garanție actualizată');
+  } else {
+    garantii.push({
+      id:garantiiIdCtr++,
+      masinaId:m.id, masinaNr:m.nr, masinaTip:m.tip,
+      serviceNume, dataExpirare,
+      note:document.getElementById('garantie-note').value.trim(),
+      interventii:[], activa:true,
+      addedBy:currentUser?.name||'unknown',
+      addedAt:new Date().toISOString()
+    });
+    toast('Mașină adăugată în garanție');
+  }
+  garantieCloseModal();
+  saveToCloud();
+  renderGarantie();
+}
+
+function garantieDelete(){
+  if(!editingGarantieId)return;
+  garantii = garantii.filter(x=>x.id!==editingGarantieId);
+  garantieCloseModal();
+  saveToCloud();
+  renderGarantie();
+  toast('Garanție ștearsă');
+}
+
+function garantieSetActiva(id, activa){
+  const g = garantii.find(x=>x.id===id);if(!g)return;
+  if(!activa && !confirm(`Marchezi mașina ${g.masinaNr} ca ieșită din garanție?`))return;
+  g.activa = activa;
+  saveToCloud();
+  renderGarantie();
+  toast(activa ? 'Garanție reactivată' : 'Mașină scoasă din garanție');
+}
+
+function garantieOpenInterventie(garantieId){
+  if(!isSrvSef())return;
+  const g = garantii.find(x=>x.id===garantieId);if(!g)return;
+  addingInterventieGarantieId = garantieId;
+  document.getElementById('garantie-int-sub').textContent = `${g.masinaNr} · ${g.serviceNume||'service autorizat'}`;
+  const today = new Date();
+  document.getElementById('garantie-int-data').value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  document.getElementById('garantie-int-km').value='';
+  document.getElementById('garantie-int-obs').value='';
+  document.getElementById('garantie-int-tip').value='Schimb ulei';
+  document.getElementById('srv-modal-garantie-interventie').classList.add('open');
+}
+
+function garantieCloseInterventie(){
+  document.getElementById('srv-modal-garantie-interventie').classList.remove('open');
+  addingInterventieGarantieId=null;
+}
+
+function garantieSaveInterventie(){
+  const g = garantii.find(x=>x.id===addingInterventieGarantieId);if(!g)return;
+  const data = document.getElementById('garantie-int-data').value;
+  const tip = document.getElementById('garantie-int-tip').value;
+  if(!data){toast('Adaugă data');return;}
+  if(!g.interventii) g.interventii=[];
+  g.interventii.push({
+    tip, data,
+    km:document.getElementById('garantie-int-km').value?Number(document.getElementById('garantie-int-km').value):null,
+    obs:document.getElementById('garantie-int-obs').value.trim(),
+    addedBy:currentUser?.name||'unknown',
+    addedAt:new Date().toISOString()
+  });
+  garantieCloseInterventie();
+  saveToCloud();
+  renderGarantie();
+  toast('Intervenție adăugată');
+}
+
+// Verificare garanții ce expiră mâine — la deschiderea aplicației
+function checkGarantiiExpirare(){
+  if(!isSrvSef() && !isAdminUser) return;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate()+1);
+  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
+
+  garantii.filter(g=>g.activa!==false && g.dataExpirare===tomorrowStr).forEach(g=>{
+    showInAppNotification(
+      `⚠️ Garanție expiră mâine — ${g.masinaNr}`,
+      `${g.serviceNume||'service autorizat'} · ${g.dataExpirare.split('-').reverse().join('.')}`
+    );
+    sendLocalNotification(
+      `⚠️ Garanție expiră mâine — ${g.masinaNr}`,
+      `${g.serviceNume||'service autorizat'}`
+    );
+  });
+}
+
+document.getElementById('srv-modal-garantie').addEventListener('click', e=>{
+  if(e.target.id==='srv-modal-garantie') garantieCloseModal();
+});
+document.getElementById('srv-modal-garantie-interventie').addEventListener('click', e=>{
+  if(e.target.id==='srv-modal-garantie-interventie') garantieCloseInterventie();
+});
 let addCostRepId=null;
 
 function openAddCostModal(repId){
@@ -3084,13 +3457,13 @@ function saveAddCost(){
 }
 
 function showSrvTab(name){
-  ['active','taskuri','istoric','adauga','masini','stoc','backup','admin'].forEach(t=>{
+  ['active','taskuri','istoric','adauga','masini','stoc','garantie','backup','admin'].forEach(t=>{
     const el=document.getElementById('srv-tab-'+t);
     if(el) el.style.display=t===name?'':'none';
   });
   const btns = document.querySelectorAll('#app-service .tab-btn');
   btns.forEach(b=>b.classList.remove('active'));
-  const idx = ['active','taskuri','istoric','adauga','masini','stoc','backup','admin'].indexOf(name);
+  const idx = ['active','taskuri','istoric','adauga','masini','stoc','garantie','backup','admin'].indexOf(name);
   if(idx>=0 && btns[idx]) btns[idx].classList.add('active');
   if(name==='active') renderSrvActive();
   if(name==='taskuri'){ updateSrvAdminUI(); renderSrvTaskuri(); }
@@ -3098,6 +3471,7 @@ function showSrvTab(name){
   if(name==='adauga') renderSrvAdauga();
   if(name==='masini') renderSrvMasini();
   if(name==='stoc') renderStoc();
+  if(name==='garantie') renderGarantie();
   if(name==='backup'){ renderBackupList(); }
   if(name==='admin') renderSrvAdmin();
 }
@@ -3821,6 +4195,17 @@ window.srvmClose=srvmClose;
 window.openAddCostModal=openAddCostModal;
 window.closeAddCostModal=closeAddCostModal;
 window.saveAddCost=saveAddCost;
+// Garanție
+window.garantieOpenAdd=garantieOpenAdd;
+window.garantieOpenEdit=garantieOpenEdit;
+window.garantieCloseModal=garantieCloseModal;
+window.garantieSave=garantieSave;
+window.garantieDelete=garantieDelete;
+window.garantieSetActiva=garantieSetActiva;
+window.garantieOpenInterventie=garantieOpenInterventie;
+window.garantieCloseInterventie=garantieCloseInterventie;
+window.garantieSaveInterventie=garantieSaveInterventie;
+window.renderGarantie=renderGarantie;
 
 // Enter key pentru login
 document.getElementById('login-password').addEventListener('keypress',e=>{if(e.key==='Enter')doAuth();});
