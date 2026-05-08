@@ -1446,6 +1446,14 @@ function hydrateFromCloud(d){
     saveToCloud();
     return;
   }
+
+  // Protecție: dacă mașinile sunt goale dar șoferii există
+  // înseamnă că ceva a mers prost — nu suprascrie Firebase
+  if(masini.length===0 && soferi.length > 0){
+    console.warn('ATENȚIE: masini goale dar soferi există — nu salvăm, așteptăm retry');
+    renderAll();
+    return;
+  }
   renderAll();
   // Render și Service dacă suntem în modul Service
   if(currentMode === 'service'){
@@ -1617,6 +1625,12 @@ function seedInitialData(){
 
 let saveTimer=null;
 function saveToCloud(){
+  // Protecție: nu salva dacă mașinile sunt goale accidental
+  // (înseamnă că ceva a mers prost cu datele în memorie)
+  if(masini.length === 0 && (soferi.length > 0 || log.length > 0 || reparatii.length > 0)){
+    console.warn('PROTECȚIE: saveToCloud blocat — masini goale cu alte date existente');
+    return;
+  }
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async ()=>{
     isSaving=true;
@@ -2478,17 +2492,16 @@ function checkForNewTasks(){
   if(newTasks.length > 0){
     newTasks.forEach(t => {
       const deadline = t.deadline
-        ? ` · termen: ${t.deadline.split('-').reverse().join('.')}`
+        ? ` · Termen: ${t.deadline.split('-').reverse().join('.')}`
         : '';
-      // Notificare sistem (dacă permisiunile sunt acordate)
+      const createdBy = t.createdBy || 'Șef';
       sendLocalNotification(
-        `Sarcină nouă — ${t.masinaNr}`,
-        `${t.descriere}${deadline}`
+        `🔧 Sarcină nouă — ${t.masinaNr}`,
+        `De la ${createdBy}: ${t.descriere}${deadline}`
       );
-      // Și notificare vizuală în aplicație (mereu vizibilă)
       showInAppNotification(
-        `Sarcină nouă — ${t.masinaNr}`,
-        `${t.descriere}${deadline}`
+        `🔧 Sarcină nouă — ${t.masinaNr}`,
+        `De la ${createdBy}: ${t.descriere}${deadline}`
       );
     });
   }
