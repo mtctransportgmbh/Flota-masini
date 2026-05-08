@@ -1,7 +1,7 @@
 {
-  "name": "Gestiune Flotă Auto",
-  "short_name": "Flotă",
-  "description": "Gestiune flotă auto pentru echipă",
+  "name": "MTC Transport",
+  "short_name": "MTC",
+  "description": "Gestiune flotă auto MTC Transport",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
