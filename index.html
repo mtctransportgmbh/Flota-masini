@@ -848,19 +848,29 @@ body.user-mode .log-mobile-card {
     <div class="modal-title" id="stoc-modal-title">Piesă nouă</div>
     <div class="modal-field">
       <div class="modal-label">Denumire piesă</div>
-      <input id="stoc-new-nume" placeholder="ex: Filtru aer CRAFTER">
+      <input id="stoc-new-nume" placeholder="ex: Filtru aer">
     </div>
-    <div class="modal-field">
-      <div class="modal-label">Categorie</div>
-      <select id="stoc-new-cat">
-        <option value="Filtre">Filtre</option>
-        <option value="Ulei">Ulei</option>
-        <option value="Frâne">Frâne</option>
-        <option value="Curea">Curea</option>
-        <option value="Bujii">Bujii</option>
-        <option value="Lichide">Lichide</option>
-        <option value="Altele">Altele</option>
-      </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
+        <div class="modal-label">Categorie</div>
+        <select id="stoc-new-cat">
+          <option value="Filtre">Filtre</option>
+          <option value="Ulei">Ulei</option>
+          <option value="Frâne">Frâne</option>
+          <option value="Curea">Curea</option>
+          <option value="Bujii">Bujii</option>
+          <option value="Lichide">Lichide</option>
+          <option value="Altele">Altele</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">Tip mașină</div>
+        <select id="stoc-new-compat">
+          <option value="CRAFTER">CRAFTER</option>
+          <option value="T6">T6</option>
+          <option value="Universal">Universal (ambele)</option>
+        </select>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="modal-field">
@@ -871,10 +881,6 @@ body.user-mode .log-mobile-card {
         <div class="modal-label">Preț (€, opțional)</div>
         <input id="stoc-new-pret" type="number" step="0.01" placeholder="0.00">
       </div>
-    </div>
-    <div class="modal-field">
-      <div class="modal-label">Compatibil cu (opțional)</div>
-      <input id="stoc-new-compat" placeholder="ex: CRAFTER, T6">
     </div>
     <div class="modal-actions">
       <button class="btn btn-danger" id="stoc-delete-btn" onclick="stocDelete()" style="display:none">Șterge</button>
@@ -2730,10 +2736,18 @@ function renderStoc(){
   sec.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">'+
     list.map(s=>{
       const cantColor=s.cantitate===0?'var(--danger)':s.cantitate<=2?'var(--t6)':'var(--accent)';
+      const tipColor = s.compatibil==='CRAFTER'?'var(--crafter)':s.compatibil==='T6'?'var(--t6)':'#888';
+      const tipLabel = s.compatibil||'Universal';
       const editBtn=isAdminUser?`<button class="icon-btn" onclick="stocOpenEdit(${s.id})">✎</button>`:'';
       return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-          <div><div style="font-size:13px;font-weight:500">${s.nume}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${s.categorie||'—'}${s.compatibil?' · '+s.compatibil:''}</div></div>
+          <div>
+            <div style="font-size:13px;font-weight:500">${s.nume}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+              <span style="font-size:10px;font-weight:500;padding:2px 7px;border-radius:3px;background:${tipColor}22;color:${tipColor};font-family:var(--mono)">${tipLabel}</span>
+              <span style="font-size:11px;color:var(--text3)">${s.categorie||'—'}</span>
+            </div>
+          </div>
           ${editBtn}
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
@@ -2750,8 +2764,9 @@ function stocOpenAdd(){
   editingStocId=null;
   document.getElementById('stoc-modal-title').textContent='Piesă nouă';
   document.getElementById('stoc-delete-btn').style.display='none';
-  ['stoc-new-nume','stoc-new-cant','stoc-new-pret','stoc-new-compat'].forEach(id=>document.getElementById(id).value='');
+  ['stoc-new-nume','stoc-new-cant','stoc-new-pret'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('stoc-new-cat').value='Filtre';
+  document.getElementById('stoc-new-compat').value='CRAFTER';
   document.getElementById('srv-modal-stoc').classList.add('open');
 }
 
@@ -2765,7 +2780,7 @@ function stocOpenEdit(id){
   document.getElementById('stoc-new-cat').value=s.categorie||'Filtre';
   document.getElementById('stoc-new-cant').value=s.cantitate||0;
   document.getElementById('stoc-new-pret').value=s.pret||'';
-  document.getElementById('stoc-new-compat').value=s.compatibil||'';
+  document.getElementById('stoc-new-compat').value=s.compatibil||'CRAFTER';
   document.getElementById('srv-modal-stoc').classList.add('open');
 }
 
@@ -2796,12 +2811,18 @@ function stocDelete(){
   stocCloseModal();saveToCloud();renderStoc();toast('Piesă ștearsă');
 }
 
-function scadeStoc(descriere){
+function scadeStoc(descriere, masinaTip){
   const desc=(descriere||'').toLowerCase();
   let changed=false;
   stoc.forEach(s=>{
-    if(s.cantitate>0&&s.nume&&desc.includes(s.nume.toLowerCase())){
-      s.cantitate=Math.max(0,s.cantitate-1);changed=true;
+    if(s.cantitate<=0 || !s.nume) return;
+    // Verifică dacă descrierea conține numele piesei
+    if(!desc.includes(s.nume.toLowerCase())) return;
+    // Verifică compatibilitatea cu tipul mașinii
+    const compat = s.compatibil||'Universal';
+    if(compat==='Universal' || !masinaTip || compat===masinaTip){
+      s.cantitate=Math.max(0,s.cantitate-1);
+      changed=true;
     }
   });
   return changed;
@@ -2923,25 +2944,103 @@ function srvOpenIstoricMasina(masinaId){
 function renderSrvmContent(masinaId){
   const sec=document.getElementById('srvm-content');if(!sec)return;
   const m=masini.find(x=>x.id===masinaId);
-  const reps=reparatii.filter(r=>r.masinaId===masinaId||(m&&r.masinaNr===m.nr)).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const reps=reparatii.filter(r=>r.masinaId===masinaId||(m&&r.masinaNr===m.nr)).sort((a,b)=>(a.km||0)-(b.km||0)||(a.data||'').localeCompare(b.data||''));
   const totalCost=reps.reduce((s,r)=>s+(Number(r.cost)||0),0);
+
   if(!reps.length){sec.innerHTML='<div style="font-size:13px;color:var(--text3);padding:14px 0">Nicio reparație înregistrată.</div>';return;}
-  sec.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <div style="font-size:13px;color:var(--text2)">${reps.length} reparații</div>
-    <div style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--accent)" class="srv-cost-display">Total: ${totalCost.toFixed(2)} €</div>
-  </div>`+
-  reps.map(r=>{
-    const dt=r.data?r.data.split('-').reverse().join('.'):'—';
-    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-        <div style="font-family:var(--mono);font-size:12px;color:var(--text3)">${dt}${r.km?' · '+Number(r.km).toLocaleString()+' km':''}</div>
-        <div style="font-family:var(--mono);font-size:13px;color:var(--accent)" class="srv-cost-display">${(Number(r.cost)||0).toFixed(2)} €</div>
-      </div>
-      <div style="font-size:13px;color:var(--text);margin-bottom:4px">${r.descriere||'—'}</div>
-      ${r.obs?`<div style="font-size:12px;color:var(--text2);font-style:italic">${r.obs}</div>`:''}
-      <div style="font-size:11px;color:var(--text3);margin-top:6px">${r.addedBy||''}</div>
+
+  // Categorii importante — detectate după cuvinte cheie în descriere
+  const CATEGORII = [
+    { key:'ulei', label:'🛢 Schimb ulei', keywords:['ulei','oil'] },
+    { key:'placute', label:'🔴 Schimb plăcuțe', keywords:['plăcuțe','placute','placuțe','frân','frana','brake'] },
+    { key:'cauciucuri', label:'⚫ Schimb cauciucuri', keywords:['cauciuc','anvelop','roat','tyre','tire'] },
+  ];
+
+  function matchCat(descriere, keywords){
+    const d=(descriere||'').toLowerCase();
+    return keywords.some(k=>d.includes(k));
+  }
+
+  function buildSectiune(label, items){
+    if(!items.length) return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px">${label}</div>
+      <div style="font-size:12px;color:var(--text3);font-style:italic">Nicio înregistrare</div>
     </div>`;
-  }).join('');
+
+    // Sortez după km dacă există, altfel după dată
+    const sorted = items.slice().sort((a,b)=>{
+      if(a.km && b.km) return a.km - b.km;
+      return (a.data||'').localeCompare(b.data||'');
+    });
+
+    const rows = sorted.map((r,i)=>{
+      const dt = r.data ? r.data.split('-').reverse().join('.') : '—';
+      const kmStr = r.km ? Number(r.km).toLocaleString()+' km' : '—';
+      // Diferența față de intrarea anterioară
+      let diff = '';
+      if(i>0 && sorted[i-1].km && r.km){
+        const d = r.km - sorted[i-1].km;
+        diff = `<span style="font-size:11px;color:var(--accent);margin-left:8px">+${d.toLocaleString()} km</span>`;
+      } else if(i===0 && sorted.length>1) {
+        diff = `<span style="font-size:11px;color:var(--text3);margin-left:8px">prima</span>`;
+      }
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div style="font-family:var(--mono);color:var(--text2)">${kmStr}${diff}</div>
+        <div style="color:var(--text3)">${dt}</div>
+        ${r.cost&&isSrvSef()?`<div style="font-family:var(--mono);color:var(--accent)" class="srv-cost-display">${Number(r.cost).toFixed(0)}€</div>`:''}
+      </div>`;
+    }).join('');
+
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:8px">${label} <span style="color:var(--text3);font-weight:400">(${sorted.length})</span></div>
+      ${rows}
+    </div>`;
+  }
+
+  // Separă în categorii
+  const altele = [];
+  const catItems = {ulei:[], placute:[], cauciucuri:[]};
+
+  reps.forEach(r=>{
+    let matched = false;
+    for(const cat of CATEGORII){
+      if(matchCat(r.descriere, cat.keywords)){
+        catItems[cat.key].push(r);
+        matched=true;
+        break;
+      }
+    }
+    if(!matched) altele.push(r);
+  });
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div style="font-size:13px;color:var(--text2)">${reps.length} reparații total</div>
+    <div style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--accent)" class="srv-cost-display">Total: ${totalCost.toFixed(2)} €</div>
+  </div>`;
+
+  // Cele 3 secțiuni importante
+  CATEGORII.forEach(cat=>{
+    html += buildSectiune(cat.label, catItems[cat.key]);
+  });
+
+  // Alte reparații
+  if(altele.length){
+    html += `<div style="font-size:12px;font-weight:500;color:var(--text2);margin:14px 0 8px">📋 Alte reparații (${altele.length})</div>`;
+    html += altele.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(r=>{
+      const dt = r.data ? r.data.split('-').reverse().join('.') : '—';
+      return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">${dt}${r.km?' · '+Number(r.km).toLocaleString()+' km':''}</div>
+          <div style="font-family:var(--mono);font-size:12px;color:var(--accent)" class="srv-cost-display">${(Number(r.cost)||0).toFixed(0)} €</div>
+        </div>
+        <div style="font-size:13px;color:var(--text)">${r.descriere||'—'}</div>
+        ${r.obs?`<div style="font-size:11px;color:var(--text2);font-style:italic;margin-top:3px">${r.obs}</div>`:''}
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">${r.addedBy||''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  sec.innerHTML=html;
 }
 
 function srvmAddRep(){
@@ -3337,7 +3436,7 @@ function srvFinalizeTask(){
   });
 
   // Scade din stoc
-  scadeStoc(t.descriere);
+  scadeStoc(t.descriere, t.masinaTip);
   // Backup automat
   backupAuto(`Sarcină finalizată — ${t.masinaNr} de ${currentUser?.name}`);
 
@@ -3486,7 +3585,7 @@ function srvAddReparatie(){
   });
 
   // Scade din stoc dacă găsește piese cu denumiri similare
-  const stocChanged = scadeStoc(descriere);
+  const stocChanged = scadeStoc(descriere, m.tip);
   if(stocChanged) toast('Reparație adăugată + stoc actualizat');
   else toast('Reparație adăugată');
 
