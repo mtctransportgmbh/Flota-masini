@@ -634,6 +634,8 @@ body.user-mode .log-mobile-card {
   <button class="tab-btn" onclick="showSrvTab('istoric')">Istoric</button>
   <button class="tab-btn" onclick="showSrvTab('adauga')">+ Adaugă</button>
   <button class="tab-btn" onclick="showSrvTab('masini')">Mașini</button>
+  <button class="tab-btn" onclick="showSrvTab('stoc')">🔩 Stoc</button>
+  <button class="tab-btn" id="srv-tab-btn-backup" onclick="showSrvTab('backup')" style="display:none">💾 Backup</button>
   <button class="tab-btn" id="srv-tab-btn-admin" onclick="showSrvTab('admin')" style="display:none">⚙ Admin</button>
 </div>
 
@@ -711,6 +713,40 @@ body.user-mode .log-mobile-card {
       <input id="srv-masini-search" placeholder="caută după nr. mașină..." oninput="renderSrvMasini()">
     </div>
     <div id="srv-masini-section"></div>
+  </div>
+
+  <!-- Tab Stoc piese -->
+  <div id="srv-tab-stoc" style="display:none">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <input id="stoc-search" placeholder="caută piesă..." oninput="renderStoc()" style="flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:9px 12px;outline:none;min-width:140px">
+      <select id="stoc-filter-cat" onchange="renderStoc()" style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:13px;padding:9px 12px;outline:none">
+        <option value="">Toate categoriile</option>
+        <option value="Filtre">Filtre</option>
+        <option value="Ulei">Ulei</option>
+        <option value="Frâne">Frâne</option>
+        <option value="Curea">Curea</option>
+        <option value="Bujii">Bujii</option>
+        <option value="Lichide">Lichide</option>
+        <option value="Altele">Altele</option>
+      </select>
+      <button class="btn-add-log" id="stoc-add-btn" onclick="stocOpenAdd()">+ Piesă nouă</button>
+    </div>
+    <div id="stoc-section"></div>
+  </div>
+
+  <!-- Tab Backup (doar admin) -->
+  <div id="srv-tab-backup" style="display:none">
+    <div class="settings-section">
+      <div class="settings-title">Backup date</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+        Se păstrează ultimele <strong style="color:var(--text)">5 backup-uri</strong>. Backup automat la fiecare modificare importantă (șoferi, sarcini). Backup manual oricând.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
+        <button class="btn btn-primary" onclick="backupManual()" style="flex:none;width:auto">💾 Backup manual acum</button>
+        <button class="btn" onclick="backupExportLast()" style="flex:none;width:auto">⬇ Export ultimul backup (JSON)</button>
+      </div>
+      <div id="backup-list-section"></div>
+    </div>
   </div>
 
   <!-- Tab Admin Service -->
@@ -806,7 +842,106 @@ body.user-mode .log-mobile-card {
   </div>
 </div>
 
-<!-- Modal editare reparație -->
+<!-- Modal adăugare/editare piesă stoc -->
+<div class="modal-overlay" id="srv-modal-stoc">
+  <div class="modal">
+    <div class="modal-title" id="stoc-modal-title">Piesă nouă</div>
+    <div class="modal-field">
+      <div class="modal-label">Denumire piesă</div>
+      <input id="stoc-new-nume" placeholder="ex: Filtru aer CRAFTER">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Categorie</div>
+      <select id="stoc-new-cat">
+        <option value="Filtre">Filtre</option>
+        <option value="Ulei">Ulei</option>
+        <option value="Frâne">Frâne</option>
+        <option value="Curea">Curea</option>
+        <option value="Bujii">Bujii</option>
+        <option value="Lichide">Lichide</option>
+        <option value="Altele">Altele</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-field">
+        <div class="modal-label">Cantitate</div>
+        <input id="stoc-new-cant" type="number" min="0" placeholder="0">
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">Preț (€, opțional)</div>
+        <input id="stoc-new-pret" type="number" step="0.01" placeholder="0.00">
+      </div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Compatibil cu (opțional)</div>
+      <input id="stoc-new-compat" placeholder="ex: CRAFTER, T6">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="stoc-delete-btn" onclick="stocDelete()" style="display:none">Șterge</button>
+      <button class="btn" onclick="stocCloseModal()">Anulează</button>
+      <button class="btn btn-primary" onclick="stocSave()">Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal istoric mașină -->
+<div class="modal-overlay" id="srv-modal-istoric-masina">
+  <div class="modal" style="max-width:600px;max-height:85vh;overflow-y:auto">
+    <div class="modal-title" id="srvm-title">Istoric mașină</div>
+    <div class="modal-sub" id="srvm-sub"></div>
+    <div id="srvm-content" style="margin-bottom:16px"></div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:10px;color:var(--text)">+ Adaugă reparație din urmă</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px">Data</div>
+          <input id="srvm-add-data" type="date" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 10px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px">Km</div>
+          <input id="srvm-add-km" type="number" placeholder="0" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 10px;outline:none">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px">Ce s-a făcut</div>
+        <input id="srvm-add-desc" placeholder="ex: schimb ulei + filtre" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:13px;padding:8px 10px;outline:none">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="srv-cost-field">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px">Cost (€)</div>
+          <input id="srvm-add-cost" type="number" step="0.01" placeholder="0.00" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 10px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px">Obs.</div>
+          <input id="srvm-add-obs" placeholder="opțional" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:13px;padding:8px 10px;outline:none">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="srvmAddRep()" style="width:auto;flex:none">Adaugă reparație</button>
+    </div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn" onclick="srvmClose()">Închide</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal adăugare cost la reparație finalizată (pentru șefi) -->
+<div class="modal-overlay" id="srv-modal-add-cost">
+  <div class="modal">
+    <div class="modal-title">Adaugă cost reparație</div>
+    <div class="modal-sub" id="add-cost-sub"></div>
+    <div class="modal-field">
+      <div class="modal-label">Cost (€)</div>
+      <input id="add-cost-val" type="number" step="0.01" placeholder="0.00">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAddCostModal()">Anulează</button>
+      <button class="btn btn-primary" onclick="saveAddCost()">Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editare cost reparație (pentru șefi la carduri) -->
+
 <div class="modal-overlay" id="srv-modal-edit">
   <div class="modal">
     <div class="modal-title">Editează reparație</div>
@@ -939,14 +1074,18 @@ let admins=[];           // username-uri cu rol de admin
 let knownUsers=[];       // utilizatori care s-au logat (pt. lista din admin)
 
 // Service mode
-let reparatii=[];        // {id, masinaNr, masinaTip, data, km, descriere, cost, obs, status, addedBy, addedAt}
+let reparatii=[];
 let repIdCtr=1;
 let editingRepId=null;
 let taskuri=[];
 let taskIdCtr=1;
 let editingTaskId=null;
 let lastKnownTaskIds = new Set();
-let currentMode = null;  // 'flota' | 'service' | null (la mode select)
+let stoc=[];        // {id, nume, categorie, cantitate, pret, compatibil, addedAt}
+let stocIdCtr=1;
+let backupuri=[];   // {id, timestamp, triggerBy, snapshot}
+let backupIdCtr=1;
+let currentMode = null;
 
 // Useri prestabiliți pentru fiecare modul
 const QUICK_USERS_FLOTA = [
@@ -1407,6 +1546,12 @@ function hydrateFromCloud(d){
   // Sarcini Service
   taskuri = (d.taskuri||[]).map(t=>({...t}));
   taskIdCtr = d.taskIdCtr || 1;
+  // Stoc piese
+  stoc = (d.stoc||[]).map(s=>({...s}));
+  stocIdCtr = d.stocIdCtr || 1;
+  // Backup-uri
+  backupuri = (d.backupuri||[]).map(b=>({id:b.id,timestamp:b.timestamp,triggerBy:b.triggerBy,size:b.size||0}));
+  backupIdCtr = d.backupIdCtr || 1;
 
   // Verifică forced logout pentru user-ul curent
   if(currentUser && window._currentForcedLogouts[currentUser.username]){
@@ -1651,6 +1796,10 @@ function saveToCloud(){
       repIdCtr,
       taskuri,
       taskIdCtr,
+      stoc,
+      stocIdCtr,
+      backupuri: backupuri.map(b=>({id:b.id,timestamp:b.timestamp,triggerBy:b.triggerBy,size:b.size||0})),
+      backupIdCtr,
       lastModifiedBy: currentUser?.name || 'unknown',
       lastModifiedAt: new Date().toISOString()
     };
@@ -1802,6 +1951,8 @@ function confirmDriver(){
   closeModalDriver();
   saveToCloud();
   renderAll();
+  // Backup automat la schimbare șofer
+  backupAuto(`Schimbat șofer ${m.nr}: ${pendingDriverChange.oldDriver||'—'} → ${newDriver} de ${currentUser?.name}`);
   toast('Șofer schimbat');
 }
 
@@ -2530,11 +2681,11 @@ function checkForCompletedTasks(){
     if(!alreadyNotified){
       const mecName = (QUICK_USERS_SERVICE.find(u=>u.username===t.asignat)||{}).name || t.asignat;
       sendLocalNotification(
-        `${mecName} a finalizat`,
+        `✅ ${mecName} a finalizat o sarcină`,
         `${t.masinaNr} · ${t.descriere}`
       );
       showInAppNotification(
-        `${mecName} a finalizat`,
+        `✅ ${mecName} a finalizat o sarcină`,
         `${t.masinaNr} · ${t.descriere}`
       );
       try{ localStorage.setItem(notifKey, '1'); }catch(e){}
@@ -2556,22 +2707,299 @@ async function requestNotificationPermission(){
   }
 }
 
+// ═════════════════════════════════════════════════════════════
+// ── STOC PIESE ───────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
+let editingStocId = null;
+
+function renderStoc(){
+  const sec = document.getElementById('stoc-section');
+  if(!sec) return;
+  const addBtn = document.getElementById('stoc-add-btn');
+  if(addBtn) addBtn.style.display = isAdminUser ? '' : 'none';
+  const q = (document.getElementById('stoc-search')?.value||'').toLowerCase();
+  const cat = document.getElementById('stoc-filter-cat')?.value || '';
+  let list = stoc.slice();
+  if(q) list = list.filter(s=>(s.nume||'').toLowerCase().includes(q)||(s.compatibil||'').toLowerCase().includes(q));
+  if(cat) list = list.filter(s=>s.categorie===cat);
+  list.sort((a,b)=>(a.categorie||'').localeCompare(b.categorie||'')||(a.nume||'').localeCompare(b.nume||''));
+  if(list.length===0){
+    sec.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px;text-align:center"><div style="font-size:32px;margin-bottom:10px">🔩</div><div style="font-size:14px;color:var(--text2)">Nicio piesă în stoc.</div></div>';
+    return;
+  }
+  sec.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">'+
+    list.map(s=>{
+      const cantColor=s.cantitate===0?'var(--danger)':s.cantitate<=2?'var(--t6)':'var(--accent)';
+      const editBtn=isAdminUser?`<button class="icon-btn" onclick="stocOpenEdit(${s.id})">✎</button>`:'';
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div><div style="font-size:13px;font-weight:500">${s.nume}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${s.categorie||'—'}${s.compatibil?' · '+s.compatibil:''}</div></div>
+          ${editBtn}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-family:var(--mono);font-size:20px;font-weight:500;color:${cantColor}">${s.cantitate} <span style="font-size:12px;color:var(--text3)">buc</span></div>
+          ${s.pret?`<div style="font-family:var(--mono);font-size:13px;color:var(--text2)" class="srv-cost-display">${Number(s.pret).toFixed(2)} €/buc</div>`:''}
+        </div>
+        ${s.cantitate===0?'<div style="font-size:11px;color:var(--danger);margin-top:6px">⚠ Stoc epuizat</div>':s.cantitate<=2?'<div style="font-size:11px;color:var(--t6);margin-top:6px">⚠ Stoc scăzut</div>':''}
+      </div>`;
+    }).join('')+'</div>';
+}
+
+function stocOpenAdd(){
+  if(!isAdminUser){toast('Doar adminul poate adăuga piese');return;}
+  editingStocId=null;
+  document.getElementById('stoc-modal-title').textContent='Piesă nouă';
+  document.getElementById('stoc-delete-btn').style.display='none';
+  ['stoc-new-nume','stoc-new-cant','stoc-new-pret','stoc-new-compat'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('stoc-new-cat').value='Filtre';
+  document.getElementById('srv-modal-stoc').classList.add('open');
+}
+
+function stocOpenEdit(id){
+  if(!isAdminUser){toast('Doar adminul poate edita');return;}
+  const s=stoc.find(x=>x.id===id);if(!s)return;
+  editingStocId=id;
+  document.getElementById('stoc-modal-title').textContent='Editează piesă';
+  document.getElementById('stoc-delete-btn').style.display='';
+  document.getElementById('stoc-new-nume').value=s.nume||'';
+  document.getElementById('stoc-new-cat').value=s.categorie||'Filtre';
+  document.getElementById('stoc-new-cant').value=s.cantitate||0;
+  document.getElementById('stoc-new-pret').value=s.pret||'';
+  document.getElementById('stoc-new-compat').value=s.compatibil||'';
+  document.getElementById('srv-modal-stoc').classList.add('open');
+}
+
+function stocCloseModal(){document.getElementById('srv-modal-stoc').classList.remove('open');editingStocId=null;}
+
+function stocSave(){
+  const nume=document.getElementById('stoc-new-nume').value.trim();
+  if(!nume){toast('Adaugă denumirea');return;}
+  const obj={
+    id:editingStocId||stocIdCtr++,
+    nume,
+    categorie:document.getElementById('stoc-new-cat').value,
+    cantitate:parseInt(document.getElementById('stoc-new-cant').value)||0,
+    pret:parseFloat(document.getElementById('stoc-new-pret').value)||null,
+    compatibil:document.getElementById('stoc-new-compat').value.trim()||null,
+    addedAt:new Date().toISOString()
+  };
+  if(editingStocId){const idx=stoc.findIndex(x=>x.id===editingStocId);if(idx>=0)stoc[idx]=obj;}
+  else stoc.push(obj);
+  stocCloseModal();saveToCloud();renderStoc();
+  toast(editingStocId?'Piesă actualizată':'Piesă adăugată');
+}
+
+function stocDelete(){
+  if(!isAdminUser||!editingStocId)return;
+  if(!confirm('Ștergi această piesă?'))return;
+  stoc=stoc.filter(x=>x.id!==editingStocId);
+  stocCloseModal();saveToCloud();renderStoc();toast('Piesă ștearsă');
+}
+
+function scadeStoc(descriere){
+  const desc=(descriere||'').toLowerCase();
+  let changed=false;
+  stoc.forEach(s=>{
+    if(s.cantitate>0&&s.nume&&desc.includes(s.nume.toLowerCase())){
+      s.cantitate=Math.max(0,s.cantitate-1);changed=true;
+    }
+  });
+  return changed;
+}
+
+// ═════════════════════════════════════════════════════════════
+// ── BACKUP ───────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
+const MAX_BACKUPS=5;
+
+function createBackupSnapshot(triggerBy){
+  const snap={
+    masini,soferi,
+    log:log.map(l=>({...l,preluat:l.preluat?l.preluat.toISOString():null,restituit:l.restituit?l.restituit.toISOString():null})),
+    reparatii,taskuri,stoc,
+    carIdCtr,logIdCtr,repIdCtr,taskIdCtr,stocIdCtr
+  };
+  const b={id:backupIdCtr++,timestamp:new Date().toISOString(),triggerBy:triggerBy||currentUser?.name||'sistem',size:JSON.stringify(snap).length,snapshot:JSON.stringify(snap)};
+  backupuri.unshift(b);
+  if(backupuri.length>MAX_BACKUPS) backupuri=backupuri.slice(0,MAX_BACKUPS);
+  return b;
+}
+
+function backupManual(){
+  if(!isAdminUser){toast('Doar adminul poate face backup');return;}
+  createBackupSnapshot(`Manual — ${currentUser?.name}`);
+  saveToCloud();renderBackupList();toast('✓ Backup creat');
+}
+
+function backupAuto(triggerBy){
+  createBackupSnapshot(triggerBy);
+}
+
+function backupExportLast(){
+  if(!backupuri.length){toast('Nu există backup-uri');return;}
+  const last=backupuri[0];
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([last.snapshot],{type:'application/json'}));
+  a.download=`backup_mtc_${last.timestamp.slice(0,10)}.json`;
+  a.click();toast('Export generat');
+}
+
+function backupExport(id){
+  const b=backupuri.find(x=>x.id===id);
+  if(!b?.snapshot){toast('Backup invalid');return;}
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([b.snapshot],{type:'application/json'}));
+  a.download=`backup_mtc_${b.timestamp.slice(0,10)}.json`;
+  a.click();
+}
+
+function backupDelete(id){
+  if(!confirm('Ștergi acest backup?'))return;
+  backupuri=backupuri.filter(x=>x.id!==id);
+  saveToCloud();renderBackupList();toast('Backup șters');
+}
+
+function backupRestoreFromFile(){
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json';
+  input.onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    const text=await file.text();
+    try{
+      const data=JSON.parse(text);
+      if(!data.masini){toast('Fișier invalid');return;}
+      if(!confirm(`Încarci backup din ${file.name}?\nVa înlocui TOATE datele curente.\nAcțiunea NU poate fi anulată.`))return;
+      masini=data.masini||[];soferi=data.soferi||[];
+      log=(data.log||[]).map(l=>({...l,preluat:l.preluat?new Date(l.preluat):null,restituit:l.restituit?new Date(l.restituit):null}));
+      reparatii=data.reparatii||[];taskuri=data.taskuri||[];stoc=data.stoc||[];
+      carIdCtr=data.carIdCtr||200;logIdCtr=data.logIdCtr||1;
+      repIdCtr=data.repIdCtr||1;taskIdCtr=data.taskIdCtr||1;stocIdCtr=data.stocIdCtr||1;
+      saveToCloud();renderAll();renderSrvAll();renderBackupList();
+      toast('✓ Backup restaurat cu succes');
+    }catch(e){toast('Eroare: JSON invalid');}
+  };
+  input.click();
+}
+
+function renderBackupList(){
+  const sec=document.getElementById('backup-list-section');if(!sec)return;
+  if(!backupuri.length){sec.innerHTML='<div style="font-size:13px;color:var(--text3)">Niciun backup încă.</div>';return;}
+  sec.innerHTML='<div style="display:grid;gap:8px">'+
+    backupuri.map((b,i)=>{
+      const dt=new Date(b.timestamp);
+      const dtStr=`${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      const sizeKB=((b.size||0)/1024).toFixed(1);
+      return `<div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:13px;font-weight:500">${i===0?'<span style="color:var(--accent);font-size:11px;font-family:var(--mono);margin-right:6px">RECENT</span>':''}${dtStr}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${b.triggerBy||'—'} · ${sizeKB} KB</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="backupExport(${b.id})" style="background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-size:12px;padding:5px 10px;border-radius:4px">⬇</button>
+          <button onclick="backupDelete(${b.id})" style="background:none;border:1px solid rgba(255,90,90,.3);color:var(--danger);cursor:pointer;font-size:12px;padding:5px 10px;border-radius:4px">🗑</button>
+        </div>
+      </div>`;
+    }).join('')+'</div>'+
+    `<div style="margin-top:14px"><button class="btn" onclick="backupRestoreFromFile()" style="flex:none;width:auto">⬆ Restaurează din fișier</button></div>`;
+}
+
+// ═════════════════════════════════════════════════════════════
+// ── ISTORIC MAȘINĂ ───────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
+let currentSrvMasinaId=null;
+
+function srvOpenIstoricMasina(masinaId){
+  const m=masini.find(x=>x.id===masinaId);if(!m)return;
+  currentSrvMasinaId=masinaId;
+  document.getElementById('srvm-title').textContent=`Istoric — ${m.nr}`;
+  document.getElementById('srvm-sub').textContent=`${m.tip||'?'} · Șofer curent: ${m.sofer||'—'}`;
+  const today=new Date();
+  document.getElementById('srvm-add-data').value=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  ['srvm-add-km','srvm-add-desc','srvm-add-cost','srvm-add-obs'].forEach(id=>document.getElementById(id).value='');
+  renderSrvmContent(masinaId);
+  document.getElementById('srv-modal-istoric-masina').classList.add('open');
+}
+
+function renderSrvmContent(masinaId){
+  const sec=document.getElementById('srvm-content');if(!sec)return;
+  const m=masini.find(x=>x.id===masinaId);
+  const reps=reparatii.filter(r=>r.masinaId===masinaId||(m&&r.masinaNr===m.nr)).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const totalCost=reps.reduce((s,r)=>s+(Number(r.cost)||0),0);
+  if(!reps.length){sec.innerHTML='<div style="font-size:13px;color:var(--text3);padding:14px 0">Nicio reparație înregistrată.</div>';return;}
+  sec.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div style="font-size:13px;color:var(--text2)">${reps.length} reparații</div>
+    <div style="font-family:var(--mono);font-size:14px;font-weight:500;color:var(--accent)" class="srv-cost-display">Total: ${totalCost.toFixed(2)} €</div>
+  </div>`+
+  reps.map(r=>{
+    const dt=r.data?r.data.split('-').reverse().join('.'):'—';
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text3)">${dt}${r.km?' · '+Number(r.km).toLocaleString()+' km':''}</div>
+        <div style="font-family:var(--mono);font-size:13px;color:var(--accent)" class="srv-cost-display">${(Number(r.cost)||0).toFixed(2)} €</div>
+      </div>
+      <div style="font-size:13px;color:var(--text);margin-bottom:4px">${r.descriere||'—'}</div>
+      ${r.obs?`<div style="font-size:12px;color:var(--text2);font-style:italic">${r.obs}</div>`:''}
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">${r.addedBy||''}</div>
+    </div>`;
+  }).join('');
+}
+
+function srvmAddRep(){
+  if(!currentSrvMasinaId){toast('Nicio mașină selectată');return;}
+  const m=masini.find(x=>x.id===currentSrvMasinaId);if(!m)return;
+  const data=document.getElementById('srvm-add-data').value;
+  const desc=document.getElementById('srvm-add-desc').value.trim();
+  if(!data||!desc){toast('Adaugă data și descrierea');return;}
+  reparatii.push({
+    id:repIdCtr++,masinaId:m.id,masinaNr:m.nr,masinaTip:m.tip,
+    data,km:document.getElementById('srvm-add-km').value?Number(document.getElementById('srvm-add-km').value):null,
+    descriere:desc,cost:document.getElementById('srvm-add-cost').value?Number(document.getElementById('srvm-add-cost').value):0,
+    obs:document.getElementById('srvm-add-obs').value.trim(),
+    status:'done',addedBy:currentUser?.name||'unknown',addedAt:new Date().toISOString(),manual:true
+  });
+  ['srvm-add-km','srvm-add-desc','srvm-add-cost','srvm-add-obs'].forEach(id=>document.getElementById(id).value='');
+  saveToCloud();renderSrvmContent(currentSrvMasinaId);renderSrvMasini();
+  toast('Reparație adăugată');
+}
+
+function srvmClose(){document.getElementById('srv-modal-istoric-masina').classList.remove('open');currentSrvMasinaId=null;}
+
+// ── COST REPARAȚII (șefi) ─────────────────────────────────────
+let addCostRepId=null;
+
+function openAddCostModal(repId){
+  const r=reparatii.find(x=>x.id===repId);if(!r)return;
+  addCostRepId=repId;
+  document.getElementById('add-cost-sub').textContent=`${r.masinaNr} · ${r.descriere}`;
+  document.getElementById('add-cost-val').value=r.cost||'';
+  document.getElementById('srv-modal-add-cost').classList.add('open');
+}
+
+function closeAddCostModal(){document.getElementById('srv-modal-add-cost').classList.remove('open');addCostRepId=null;}
+
+function saveAddCost(){
+  const r=reparatii.find(x=>x.id===addCostRepId);if(!r)return;
+  r.cost=parseFloat(document.getElementById('add-cost-val').value)||0;
+  r.costAddedBy=currentUser?.name||'unknown';
+  closeAddCostModal();saveToCloud();renderSrvActive();renderSrvIstoric();toast('Cost salvat');
+}
+
 function showSrvTab(name){
-  ['active','taskuri','istoric','adauga','masini','admin'].forEach(t=>{
+  ['active','taskuri','istoric','adauga','masini','stoc','backup','admin'].forEach(t=>{
     const el=document.getElementById('srv-tab-'+t);
     if(el) el.style.display=t===name?'':'none';
   });
-  // Activare buton
   const btns = document.querySelectorAll('#app-service .tab-btn');
   btns.forEach(b=>b.classList.remove('active'));
-  const idx = ['active','taskuri','istoric','adauga','masini','admin'].indexOf(name);
+  const idx = ['active','taskuri','istoric','adauga','masini','stoc','backup','admin'].indexOf(name);
   if(idx>=0 && btns[idx]) btns[idx].classList.add('active');
-
   if(name==='active') renderSrvActive();
   if(name==='taskuri'){ updateSrvAdminUI(); renderSrvTaskuri(); }
   if(name==='istoric') renderSrvIstoric();
   if(name==='adauga') renderSrvAdauga();
   if(name==='masini') renderSrvMasini();
+  if(name==='stoc') renderStoc();
+  if(name==='backup'){ renderBackupList(); }
   if(name==='admin') renderSrvAdmin();
 }
 
@@ -2591,13 +3019,13 @@ function updateSrvAdminUI(){
   isAdminUser = isAdmin;
   const btn = document.getElementById('srv-tab-btn-admin');
   if(btn) btn.style.display = isAdmin ? '' : 'none';
+  const backupBtn = document.getElementById('srv-tab-btn-backup');
+  if(backupBtn) backupBtn.style.display = isAdmin ? '' : 'none';
 
   const sef = isSrvSef();
-  // Adăugarea de sarcini noi e doar pentru șefi (sau admin)
   const addTaskBtn = document.getElementById('srv-add-task-btn');
   if(addTaskBtn) addTaskBtn.style.display = sef ? '' : 'none';
 
-  // Marker pe body — folosit de CSS-uri restrictive
   document.body.classList.toggle('user-mode', !isAdmin);
   document.body.classList.toggle('admin-mode', isAdmin);
   document.body.classList.toggle('srv-mecanic', currentMode==='service' && !sef);
@@ -2843,6 +3271,7 @@ function srvSaveTask(){
       createdAt: new Date().toISOString()
     });
     toast('Sarcină creată');
+    backupAuto(`Sarcină nouă ${m.nr} → ${asignat} de ${currentUser?.name}`);
   }
 
   srvCloseTaskModal();
@@ -2887,31 +3316,30 @@ function srvFinalizeTask(){
   const cost = document.getElementById('srv-complete-cost').value;
   const obs = document.getElementById('srv-complete-obs').value.trim();
 
-  // Marchez taskul ca finalizat
   t.status = 'done';
   t.completedBy = currentUser?.name || 'unknown';
   t.completedByUsername = currentUser?.username || '';
   t.completedAt = new Date().toISOString();
 
-  // Creez reparația automată
   const today = new Date();
   const dataStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   reparatii.push({
     id: repIdCtr++,
-    masinaId: t.masinaId,
-    masinaNr: t.masinaNr,
-    masinaTip: t.masinaTip,
+    masinaId: t.masinaId, masinaNr: t.masinaNr, masinaTip: t.masinaTip,
     data: dataStr,
     km: km ? Number(km) : null,
     descriere: t.descriere,
     cost: cost ? Number(cost) : 0,
-    obs,
-    status: 'done',
-    fromTaskId: t.id,
+    obs, status: 'done', fromTaskId: t.id,
     addedBy: currentUser?.name || 'unknown',
     addedByUsername: currentUser?.username || '',
     addedAt: new Date().toISOString()
   });
+
+  // Scade din stoc
+  scadeStoc(t.descriere);
+  // Backup automat
+  backupAuto(`Sarcină finalizată — ${t.masinaNr} de ${currentUser?.name}`);
 
   srvCloseComplete();
   saveToCloud();
@@ -2944,14 +3372,18 @@ function updateSrvStats(){
 }
 
 function srvCardHtml(r, allowEdit){
-  const tipColor = r.masinaTip==='CRAFTER' ? 'var(--crafter)' : r.masinaTip==='T6' ? 'var(--t6)' : r.masinaTip==='ELEKTRO' ? 'var(--elektro)' : '#444';
-  const isActive = r.status === 'active';
+  const tipColor = r.masinaTip==='CRAFTER'?'var(--crafter)':r.masinaTip==='T6'?'var(--t6)':r.masinaTip==='ELEKTRO'?'var(--elektro)':'#444';
+  const isActive = r.status==='active';
   const statusBadge = isActive
     ? `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);font-family:var(--mono)">🔧 ÎN LUCRU</span>`
     : `<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(200,245,66,.12);color:var(--accent);font-family:var(--mono)">✓ FINALIZATĂ</span>`;
   const data = r.data ? new Date(r.data) : null;
   const dataFmt = data ? `${String(data.getDate()).padStart(2,'0')}.${String(data.getMonth()+1).padStart(2,'0')}.${data.getFullYear()}` : '—';
   const editBtn = allowEdit ? `<button class="icon-btn" onclick="srvOpenEdit(${r.id})">✎</button>` : '';
+  // Buton "Adaugă cost" vizibil pentru șefi la reparații fără cost sau cu cost 0
+  const addCostBtn = isSrvSef() && (!r.cost || r.cost===0)
+    ? `<button onclick="openAddCostModal(${r.id})" style="background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-size:11px;padding:4px 8px;border-radius:4px;font-family:inherit">+ cost</button>`
+    : '';
   return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden">
     <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${tipColor}"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -2963,13 +3395,16 @@ function srvCardHtml(r, allowEdit){
     </div>
     <div style="font-family:var(--mono);font-size:16px;font-weight:500;margin-bottom:10px;letter-spacing:.04em">${r.masinaNr}</div>
     <div style="font-size:13px;color:var(--text);margin-bottom:6px;line-height:1.4">${r.descriere||'—'}</div>
-    ${r.obs ? `<div style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:10px;line-height:1.4">${r.obs}</div>` : ''}
+    ${r.obs?`<div style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:10px;line-height:1.4">${r.obs}</div>`:''}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
       <div style="font-size:11px;color:var(--text3)">
         <div>${dataFmt}${r.km?` · ${Number(r.km).toLocaleString()} km`:''}</div>
         ${r.addedBy?`<div style="margin-top:2px">de ${r.addedBy}</div>`:''}
       </div>
-      <div style="font-family:var(--mono);font-size:15px;font-weight:500;color:var(--accent);white-space:nowrap" class="srv-cost-display">${(Number(r.cost)||0).toFixed(2)} €</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${addCostBtn}
+        <div style="font-family:var(--mono);font-size:15px;font-weight:500;color:var(--accent);white-space:nowrap" class="srv-cost-display">${(Number(r.cost)||0).toFixed(2)} €</div>
+      </div>
     </div>
   </div>`;
 }
@@ -3041,29 +3476,30 @@ function srvAddReparatie(){
 
   reparatii.push({
     id: repIdCtr++,
-    masinaId: m.id,
-    masinaNr: m.nr,
-    masinaTip: m.tip,
-    data,
-    km: km ? Number(km) : null,
-    descriere,
-    cost: cost ? Number(cost) : 0,
-    obs,
+    masinaId: m.id, masinaNr: m.nr, masinaTip: m.tip,
+    data, km: km ? Number(km) : null,
+    descriere, cost: cost ? Number(cost) : 0, obs,
     status: 'active',
     addedBy: currentUser?.name || 'unknown',
     addedByUsername: currentUser?.username || '',
     addedAt: new Date().toISOString()
   });
 
-  // Reset form
-  document.getElementById('srv-new-masina').value = '';
-  document.getElementById('srv-new-km').value = '';
-  document.getElementById('srv-new-descriere').value = '';
-  document.getElementById('srv-new-cost').value = '';
-  document.getElementById('srv-new-obs').value = '';
+  // Scade din stoc dacă găsește piese cu denumiri similare
+  const stocChanged = scadeStoc(descriere);
+  if(stocChanged) toast('Reparație adăugată + stoc actualizat');
+  else toast('Reparație adăugată');
+
+  // Backup automat la reparație nouă
+  backupAuto(`Reparație nouă — ${m.nr} de ${currentUser?.name}`);
+
+  document.getElementById('srv-new-masina').value='';
+  document.getElementById('srv-new-km').value='';
+  document.getElementById('srv-new-descriere').value='';
+  document.getElementById('srv-new-cost').value='';
+  document.getElementById('srv-new-obs').value='';
 
   saveToCloud();
-  toast('Reparație adăugată');
   showSrvTab('active');
 }
 
@@ -3072,31 +3508,28 @@ function renderSrvMasini(){
   if(!sec) return;
   const q = (document.getElementById('srv-masini-search')?.value||'').toLowerCase();
   let list = masini.slice();
-  if(q){
-    list = list.filter(m => (m.nr||'').toLowerCase().includes(q));
-  }
+  if(q) list = list.filter(m => (m.nr||'').toLowerCase().includes(q));
   list.sort((a,b)=>(a.nr||'').localeCompare(b.nr||''));
-  if(list.length===0){
-    sec.innerHTML='<div class="empty-state">Nicio mașină.</div>';
-    return;
-  }
+  if(!list.length){ sec.innerHTML='<div class="empty-state">Nicio mașină.</div>'; return; }
   sec.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">' +
     list.map(m=>{
       const reps = reparatii.filter(r => r.masinaId===m.id || r.masinaNr===m.nr);
       const activeCount = reps.filter(r=>r.status==='active').length;
-      const totalCount = reps.length;
       const totalCost = reps.reduce((s,r)=>s+(Number(r.cost)||0),0);
-      const tipColor = m.tip==='CRAFTER' ? 'var(--crafter)' : m.tip==='T6' ? 'var(--t6)' : m.tip==='ELEKTRO' ? 'var(--elektro)' : '#444';
-      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden">
+      const tipColor = m.tip==='CRAFTER'?'var(--crafter)':m.tip==='T6'?'var(--t6)':m.tip==='ELEKTRO'?'var(--elektro)':'#444';
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden;cursor:pointer" onclick="srvOpenIstoricMasina(${m.id})">
         <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${tipColor}"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <span class="tip-badge tip-${m.tip||'unknown'}">${m.tip||'?'}</span>
           ${activeCount>0?`<span style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:3px;background:rgba(255,159,74,.12);color:var(--t6);font-family:var(--mono)">🔧 ${activeCount}</span>`:''}
         </div>
         <div style="font-family:var(--mono);font-size:15px;font-weight:500;margin-bottom:10px">${m.nr}</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding-top:8px;border-top:1px solid var(--border)">
-          <span>Total reparații: <strong style="color:var(--text)">${totalCount}</strong></span>
-          <span style="font-family:var(--mono);color:var(--accent)" class="srv-cost-display">${totalCost.toFixed(0)} €</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2);padding-top:8px;border-top:1px solid var(--border)">
+          <span>${reps.length} reparații</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-family:var(--mono);color:var(--accent)" class="srv-cost-display">${totalCost.toFixed(0)} €</span>
+            <span style="font-size:11px;color:var(--accent);opacity:.7">→ Istoric</span>
+          </div>
         </div>
       </div>`;
     }).join('') + '</div>';
@@ -3268,6 +3701,27 @@ window.srvDeleteTask=srvDeleteTask;
 window.srvOpenComplete=srvOpenComplete;
 window.srvCloseComplete=srvCloseComplete;
 window.srvFinalizeTask=srvFinalizeTask;
+// Stoc
+window.stocOpenAdd=stocOpenAdd;
+window.stocOpenEdit=stocOpenEdit;
+window.stocCloseModal=stocCloseModal;
+window.stocSave=stocSave;
+window.stocDelete=stocDelete;
+window.renderStoc=renderStoc;
+// Backup
+window.backupManual=backupManual;
+window.backupExportLast=backupExportLast;
+window.backupExport=backupExport;
+window.backupDelete=backupDelete;
+window.backupRestoreFromFile=backupRestoreFromFile;
+// Istoric mașină
+window.srvOpenIstoricMasina=srvOpenIstoricMasina;
+window.srvmAddRep=srvmAddRep;
+window.srvmClose=srvmClose;
+// Cost reparații
+window.openAddCostModal=openAddCostModal;
+window.closeAddCostModal=closeAddCostModal;
+window.saveAddCost=saveAddCost;
 
 // Enter key pentru login
 document.getElementById('login-password').addEventListener('keypress',e=>{if(e.key==='Enter')doAuth();});
