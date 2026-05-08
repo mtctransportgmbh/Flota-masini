@@ -1,10 +1,7 @@
-// Firebase Messaging Service Worker
-// Gestionează notificările push când aplicația e în background sau închisă
-
+// Firebase Messaging Service Worker — SDK v9 modular
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
-// ⬇ IMPORTANT: pune EXACT aceleași valori ca în config.js
 firebase.initializeApp({
   apiKey: "AIzaSyA1O2Lw3unTXECgCtp2bdYuHjgfVqPEW6U",
   authDomain: "flota-firma.firebaseapp.com",
@@ -16,28 +13,30 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Notificări când aplicația e în background
 messaging.onBackgroundMessage((payload) => {
+  console.log('Background message primit:', payload);
   const { title, body, icon } = payload.notification || {};
   self.registration.showNotification(title || 'Flotă MTC', {
     body: body || '',
-    icon: icon || './icon-192.png',
-    badge: './icon-192.png',
-    tag: payload.collapseKey || 'mtc-notification',
-    data: payload.data
+    icon: icon || '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'mtc-' + Date.now(),
+    data: payload.data,
+    requireInteraction: true,
+    vibrate: [200, 100, 200]
   });
 });
 
-// Dimineața la 08:00 — verifică sarcini (ca backup pentru notificarea din aplicație)
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      if (clientList.length > 0) {
-        clientList[0].focus();
-      } else {
-        clients.openWindow('./');
+      for (const client of clientList) {
+        if (client.url.includes('github.io') && 'focus' in client) {
+          return client.focus();
+        }
       }
+      return clients.openWindow('./');
     })
   );
 });
