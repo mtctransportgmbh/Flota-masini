@@ -826,7 +826,14 @@ body.user-mode .log-mobile-card {
 
     <div class="settings-section" style="border-color:rgba(255,90,90,.3)">
       <div class="settings-title" style="color:var(--danger)">⚠ Zonă periculoasă</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+        <strong style="color:var(--text)">Resetează token-uri notificări</strong> — șterge toate token-urile push de pe toate dispozitivele tuturor userilor. După reset, fiecare user trebuie să apese 🔔 Activează din nou pe telefonul lui.<br>
+        <span style="color:var(--text3);font-size:12px">Folosește când cineva s-a logat pe prea multe dispozitive și notificările nu ajung.</span>
+      </div>
+      <button class="btn btn-danger" onclick="resetAllPushTokens()" style="flex:none;width:auto;margin-bottom:18px">🔔 Resetează toate token-urile</button>
+
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">
         <strong style="color:var(--text)">Șterge toate reparațiile</strong> — elimină definitiv TOATE intrările (<span id="srv-rep-count">0</span>).<br>
         <strong style="color:var(--danger)">Această acțiune NU poate fi anulată.</strong>
       </div>
@@ -4671,7 +4678,39 @@ window.srvOpenEdit=srvOpenEdit;
 window.srvCloseEdit=srvCloseEdit;
 window.srvSaveEdit=srvSaveEdit;
 window.srvDeleteRep=srvDeleteRep;
-window.srvDeleteAll=srvDeleteAll;
+async function resetAllPushTokens(){
+  if(!isAdminUser){ toast('Doar adminul poate face asta'); return; }
+  if(!confirm('Ștergi TOATE token-urile push pentru toți userii?\n\nDupă reset, fiecare user trebuie să apese 🔔 Activează din nou pe telefonul lui.\n\nContinui?')) return;
+
+  // Șterg toate token-urile din knownUsers
+  knownUsers.forEach(u => {
+    u.pushToken = null;
+    u.pushTokens = [];
+    u.pushTokenUpdatedAt = new Date().toISOString();
+  });
+
+  // Salvez imediat în Firestore
+  try {
+    const payload = {
+      masini, soferi,
+      log: log.map(l=>({...l, preluat:l.preluat?l.preluat.toISOString():null, restituit:l.restituit?l.restituit.toISOString():null})),
+      carIdCtr, logIdCtr, admins, knownUsers,
+      forcedLogouts: window._currentForcedLogouts||{},
+      reparatii, repIdCtr, taskuri, taskIdCtr,
+      stoc, stocIdCtr,
+      backupuri: backupuri.map(b=>({id:b.id,timestamp:b.timestamp,triggerBy:b.triggerBy,size:b.size||0})),
+      backupIdCtr, garantii, garantiiIdCtr,
+      lastModifiedBy: currentUser.name,
+      lastModifiedAt: new Date().toISOString()
+    };
+    await window.fbHelpers.setDoc(window.fbDocRef, payload);
+    toast('✓ Toate token-urile au fost șterse. Roagă fiecare user să apese 🔔 Activează.');
+    renderSrvAdmin();
+  } catch(e) {
+    toast('Eroare: ' + e.message);
+  }
+}
+window.resetAllPushTokens=resetAllPushTokens;
 window.srvExport=srvExport;
 window.renderSrvIstoric=renderSrvIstoric;
 window.renderSrvMasini=renderSrvMasini;
