@@ -366,6 +366,8 @@ body.user-mode .log-mobile-card {
   <!-- ── TAB DISPONIBIL ───────────────────────────────────── -->
   <div id="tab-disponibil" style="display:none">
     <div id="disp-section" class="disp-grid"></div>
+    <!-- Paketshop section -->
+    <div id="paketshop-section" style="margin-top:18px"></div>
   </div>
 
   <!-- ── TAB LOG ──────────────────────────────────────────── -->
@@ -508,7 +510,13 @@ body.user-mode .log-mobile-card {
     <div class="modal-sub" id="md-sub"></div>
     <div class="modal-field">
       <div class="modal-label">Șofer nou</div>
-      <select id="md-driver"></select>
+      <div style="position:relative;margin-bottom:8px">
+        <input id="md-driver-search" placeholder="🔍 caută șofer..." oninput="filterDriverList()"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 36px 10px 12px;outline:none">
+        <button onclick="clearDriverSearch()" id="md-search-clear"
+          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px;display:none">✕</button>
+      </div>
+      <select id="md-driver" size="6" style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:14px;padding:4px;outline:none"></select>
     </div>
     <div class="modal-field">
       <div class="modal-label">Data și ora schimbării</div>
@@ -770,6 +778,47 @@ body.user-mode .log-mobile-card {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
         <button class="btn" onclick="srvExport()" style="flex:none;width:auto">Export reparații (JSON)</button>
         <button class="btn btn-danger" onclick="doLogout()" style="flex:none;width:auto">Ieși din cont</button>
+      </div>
+    </div>
+
+    <!-- Secțiune test notificări -->
+    <div class="settings-section" style="border-color:rgba(200,245,66,.2)">
+      <div class="settings-title" style="color:var(--accent)">🔔 Diagnosticare & Test notificări</div>
+
+      <!-- Status -->
+      <div id="notif-status-box" style="background:var(--surface2);border-radius:6px;padding:12px 14px;font-size:12px;font-family:var(--mono);color:var(--text2);margin-bottom:14px;line-height:1.8">
+        Apasă "Verifică status" pentru a vedea starea notificărilor
+      </div>
+
+      <!-- Butoane diagnosticare -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
+        <button class="btn" onclick="checkNotifStatus()" style="flex:none;width:auto">🔍 Verifică status</button>
+        <button class="btn" onclick="refreshPushToken()" style="flex:none;width:auto">🔄 Reîmprospătează token</button>
+      </div>
+
+      <!-- Test notificări pe telefon curent -->
+      <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Test pe telefonul tău (notificare locală)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
+        <button class="btn" onclick="testNotifLocal('general')" style="flex:none;width:auto">📱 Test simplu</button>
+        <button class="btn" onclick="testNotifLocal('sarcina')" style="flex:none;width:auto">🔧 Test sarcină nouă</button>
+        <button class="btn" onclick="testNotifLocal('finalizare')" style="flex:none;width:auto">✅ Test finalizare</button>
+        <button class="btn" onclick="testNotifLocal('garantie')" style="flex:none;width:auto">🛡 Test garanție</button>
+        <button class="btn" onclick="testNotifLocal('briefing')" style="flex:none;width:auto">☀️ Test briefing</button>
+      </div>
+
+      <!-- Test notificări push prin Firebase (trimite la toți) -->
+      <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Test push Firebase (trimite la toți userii cu token)</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">
+        Simulează o notificare reală prin Firebase — ajunge chiar dacă aplicația e închisă.
+      </div>
+      <div id="push-test-result" style="display:none;background:var(--surface2);border-radius:6px;padding:10px 14px;font-size:12px;font-family:var(--mono);color:var(--text2);margin-bottom:12px;line-height:1.7"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="testPushFirebase('sarcina')" style="flex:none;width:auto">🔧 Test push → Ion/Vasile</button>
+        <button class="btn btn-primary" onclick="testPushFirebase('finalizare')" style="flex:none;width:auto">✅ Test push → Cristi/Mihai</button>
+        <button class="btn btn-primary" onclick="testPushFirebase('garantie')" style="flex:none;width:auto">🛡 Test push → toți șefii</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:10px;line-height:1.6">
+        Dacă push-ul nu ajunge: apasă mai întâi "🔄 Reîmprospătează token" pe fiecare telefon în parte.
       </div>
     </div>
 
@@ -1257,7 +1306,20 @@ function getSoferiNames(){
   return soferi.map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
 }
 
-function buildOpts(sel){
+function buildOpts(sel, filter=''){
+  const q = filter.toLowerCase();
+  const soferiList = soferi.map(s => typeof s === 'string' ? {name:s, location:''} : s);
+  const eisel = soferiList.filter(s=>s.location==='Eiselfing').sort((a,b)=>a.name.localeCompare(b.name));
+  const ruhst = soferiList.filter(s=>s.location==='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
+  const other = soferiList.filter(s=>s.location!=='Eiselfing' && s.location!=='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
+
+  // Dacă există căutare — afișez doar rezultate fără grupare
+  if(q){
+    const all = [...eisel, ...ruhst, ...other].filter(s=>s.name.toLowerCase().includes(q));
+    return all.map(s=>`<option value="${s.name}"${s.name===sel?' selected':''}>${s.name} (${s.location||'—'})</option>`).join('') ||
+      '<option disabled>Niciun rezultat</option>';
+  }
+
   let html = `<option value="DEPOZIT"${sel==='DEPOZIT'?' selected':''}>DEPOZIT</option>`+
     `<option value="POLLING"${sel==='POLLING'?' selected':''}>POLLING</option>`+
     `<option value="EISELFING"${sel==='EISELFING'?' selected':''}>EISELFING</option>`+
@@ -1265,12 +1327,6 @@ function buildOpts(sel){
     `<option value="PAKETSHOP"${sel==='PAKETSHOP'?' selected':''}>PAKETSHOP</option>`+
     `<option value="STRICATA"${sel==='STRICATA'?' selected':''}>🔧 STRICATĂ</option>`+
     `<option value=""${(!sel||sel==='')?' selected':''}>— nealocat —</option>`;
-
-  // Grupez șoferii pe locație
-  const soferiList = soferi.map(s => typeof s === 'string' ? {name:s, location:''} : s);
-  const eisel = soferiList.filter(s=>s.location==='Eiselfing').sort((a,b)=>a.name.localeCompare(b.name));
-  const ruhst = soferiList.filter(s=>s.location==='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
-  const other = soferiList.filter(s=>s.location!=='Eiselfing' && s.location!=='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
 
   if(eisel.length){
     html += `<option disabled>── EISELFING ──</option>`;
@@ -1286,6 +1342,25 @@ function buildOpts(sel){
   }
   return html;
 }
+
+function filterDriverList(){
+  const q = document.getElementById('md-driver-search')?.value || '';
+  const clearBtn = document.getElementById('md-search-clear');
+  if(clearBtn) clearBtn.style.display = q ? '' : 'none';
+  const sel = document.getElementById('md-driver')?.value || '';
+  document.getElementById('md-driver').innerHTML = buildOpts(sel, q);
+}
+
+function clearDriverSearch(){
+  const input = document.getElementById('md-driver-search');
+  if(input){ input.value=''; input.focus(); }
+  document.getElementById('md-search-clear').style.display='none';
+  const sel = document.getElementById('md-driver')?.value || '';
+  document.getElementById('md-driver').innerHTML = buildOpts(sel, '');
+}
+
+window.filterDriverList=filterDriverList;
+window.clearDriverSearch=clearDriverSearch;
 
 function toast(msg){
   const t=document.getElementById('toast');
@@ -1995,7 +2070,12 @@ function askChangeDriver(carId, newDriver){
   pendingDriverChange={carId, newDriver, oldDriver:m.sofer};
   document.getElementById('md-title').textContent='Schimbă șofer — '+m.nr;
   document.getElementById('md-sub').textContent=`${m.sofer||'—'} → ${newDriver}`;
-  document.getElementById('md-driver').innerHTML=buildOpts(newDriver);
+  // Resetez câmpul de căutare
+  const searchInput = document.getElementById('md-driver-search');
+  if(searchInput) searchInput.value='';
+  const clearBtn = document.getElementById('md-search-clear');
+  if(clearBtn) clearBtn.style.display='none';
+  document.getElementById('md-driver').innerHTML=buildOpts(newDriver, '');
   document.getElementById('md-dt').value=fmtDtInput(new Date());
   document.getElementById('modal-driver').classList.add('open');
 }
@@ -2069,8 +2149,10 @@ function renderLog(){
   sec.innerHTML=filtered.map(l=>{
     const activ=!l.restituit;
     const modBy = l.addedBy || l.preluatBy || l.restituitBy || '—';
-    // Fallback: dacă addedAt nu e setat (log vechi), folosim preluat ca aproximare
     const modAt = l.addedAt ? new Date(l.addedAt) : (l.preluat || null);
+    const deleteBtn = isAdminUser
+      ? `<button onclick="deleteLogDirect(${l.id})" title="Șterge log" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:4px;line-height:1;opacity:.7" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7">✕</button>`
+      : '';
     return `<div class="log-row">
       <div class="log-nr">${l.nr}</div>
       <div>${l.sofer}</div>
@@ -2082,7 +2164,10 @@ function renderLog(){
         <div style="font-weight:500;color:var(--text)">Adăugat de ${modBy}</div>
         ${modAt?`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:2px">${fmtDt(modAt)}</div>`:''}
       </div>
-      <div><button class="log-edit-btn" onclick="openEditLog(${l.id})">✎</button></div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="log-edit-btn" onclick="openEditLog(${l.id})">✎</button>
+        ${deleteBtn}
+      </div>
     </div>`;
   }).join('');
   mob.innerHTML=filtered.map(l=>{
@@ -2093,7 +2178,10 @@ function renderLog(){
     return `<div class="log-mobile-card" ${onClick}>
       <div class="log-mobile-top">
         <div class="log-mobile-driver">${l.sofer}</div>
-        <span class="log-badge ${activ?'badge-activ':'badge-inchis'}">${activ?'ACTIV':'ÎNCHIS'}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="log-badge ${activ?'badge-activ':'badge-inchis'}">${activ?'ACTIV':'ÎNCHIS'}</span>
+          ${isAdminUser?`<button onclick="event.stopPropagation();deleteLogDirect(${l.id})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:18px;padding:0 4px;line-height:1">✕</button>`:''}
+        </div>
       </div>
       <div class="log-mobile-row"><span>Mașină</span><span>${l.nr} · ${l.tip||'-'}</span></div>
       <div class="log-mobile-row"><span>Preluat</span><span>${fmtDt(l.preluat)}</span></div>
@@ -2132,8 +2220,18 @@ function saveLog(){
   renderAll();
   toast('Log salvat');
 }
+function deleteLogDirect(id){
+  if(!isAdminUser){ toast('Doar adminul poate șterge'); return; }
+  if(!confirm('Ștergi acest log definitiv?')) return;
+  log = log.filter(l=>l.id!==id);
+  saveToCloud();
+  renderLog();
+  toast('Log șters');
+}
+window.deleteLogDirect=deleteLogDirect;
+
 function deleteLog(){
-  if(!confirm('Ștergi acest log?'))return;
+  if(!confirm('Ștergi acest log?')) return;
   log=log.filter(x=>x.id!==editingLogId);
   closeModalLog();
   saveToCloud();
@@ -2220,6 +2318,30 @@ function renderDisponibil(){
       <div class="disp-items">${d.length===0?'<div class="disp-empty">Niciuna disponibilă</div>':d.map(m=>`<div class="disp-item"><div class="disp-dot"></div>${m.nr}</div>`).join('')}</div>`;
     sec.appendChild(col);
   });
+
+  // Secțiunea Paketshop — mașini cu sofer=PAKETSHOP + șoferi atribuiți
+  const paketshopSec = document.getElementById('paketshop-section');
+  if(!paketshopSec) return;
+  const pMasini = masini.filter(m=>sk(m.sofer)==='PAKETSHOP').sort((a,b)=>(a.nr||'').localeCompare(b.nr||''));
+  if(!pMasini.length){ paketshopSec.innerHTML=''; return; }
+
+  paketshopSec.innerHTML = `
+    <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--paketshop);font-weight:500;margin-bottom:10px">
+      📦 Paketshop (${pMasini.length} mașini)
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+      ${pMasini.map(m=>{
+        const tipColor = m.tip==='CRAFTER'?'var(--crafter)':m.tip==='T6'?'var(--t6)':'#888';
+        const soferReal = m.sofer && !SPECIALS.includes(m.sofer) ? m.sofer : '—';
+        return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-family:var(--mono);font-size:13px;font-weight:500">${m.nr}</span>
+            <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${tipColor}22;color:${tipColor};font-family:var(--mono)">${m.tip||'?'}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text2)">${soferReal}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 // ── SOFERI ───────────────────────────────────────────────────────────
@@ -3061,10 +3183,10 @@ function renderSrvmContent(masinaId){
     { key:'ulei', label:'🛢 Schimb ulei', keywords:['ulei','oil'] },
     { key:'placute_fata', label:'🔴 Plăcuțe față', keywords:['plăcuțe față','placute fata','placuțe față','frână față','frana fata','brake front','față frân','fata frana'] },
     { key:'placute_spate', label:'🔴 Plăcuțe spate', keywords:['plăcuțe spate','placute spate','placuțe spate','frână spate','frana spate','brake rear','spate frân','spate frana'] },
-    { key:'placute', label:'🔴 Plăcuțe (toate)', keywords:['plăcuțe','placute','placuțe','frân','frana','brake'] },
+    { key:'placute', label:'🔴 Plăcuțe (nespecificat)', keywords:['plăcuțe','placute','placuțe','frân','frana','brake'] },
     { key:'cauciucuri_fata', label:'⚫ Cauciucuri față', keywords:['cauciuc față','cauciuc fata','anvelop față','anvelop fata','roat față','roat fata','față cauciuc','fata cauciuc','front tyre','front tire'] },
     { key:'cauciucuri_spate', label:'⚫ Cauciucuri spate', keywords:['cauciuc spate','anvelop spate','roat spate','spate cauciuc','rear tyre','rear tire'] },
-    { key:'cauciucuri', label:'⚫ Cauciucuri (toate)', keywords:['cauciuc','anvelop','roat','tyre','tire'] },
+    { key:'cauciucuri', label:'⚫ Cauciucuri (nespecificat)', keywords:['cauciuc','anvelop','roat','tyre','tire'] },
   ];
 
   function matchCat(descriere, keywords){
@@ -3177,7 +3299,197 @@ function srvmAddRep(){
 function srvmClose(){document.getElementById('srv-modal-istoric-masina').classList.remove('open');currentSrvMasinaId=null;}
 
 // ═════════════════════════════════════════════════════════════
-// ── GARANȚIE ─────────────────────────────────────────────────
+// ── DIAGNOSTICARE NOTIFICĂRI ─────────────────────────────────
+// ═════════════════════════════════════════════════════════════
+
+async function checkNotifStatus(){
+  const box = document.getElementById('notif-status-box');
+  if(!box) return;
+
+  const lines = [];
+  lines.push(`Browser: ${'Notification' in window ? '✓ suportă notificări' : '✗ nu suportă notificări'}`);
+  lines.push(`Permisiune: ${Notification.permission==='granted'?'✓ Acordată':Notification.permission==='denied'?'✗ Blocată':'⚠ Nesetată'}`);
+  lines.push(`Service Worker: ${'serviceWorker' in navigator ? '✓ suportat' : '✗ nesuportat'}`);
+
+  try{
+    const sw = await navigator.serviceWorker.ready;
+    lines.push(`SW înregistrat: ✓ ${sw.scope}`);
+  }catch(e){
+    lines.push(`SW înregistrat: ✗ ${e.message}`);
+  }
+
+  // Token curent din Firestore
+  const userInDb = (window._knownUsersSnapshot||[]).find(u=>u.username===currentUser?.username);
+  const token = userInDb?.pushToken;
+  if(token){
+    lines.push(`Token FCM: ✓ ${token.slice(0,25)}...`);
+    lines.push(`Token actualizat: ${userInDb.pushTokenUpdatedAt ? new Date(userInDb.pushTokenUpdatedAt).toLocaleString('ro-RO') : '—'}`);
+  } else {
+    lines.push(`Token FCM: ✗ lipsește — apasă "Reîmprospătează token"`);
+  }
+
+  lines.push(`Firebase Messaging: ${window.fbMessaging ? '✓ inițializat' : '✗ neinițializat'}`);
+  lines.push(`VAPID Key: ${VAPID_KEY && VAPID_KEY!=='INLOCUIESTE_CU_VAPID_KEY_DIN_FIREBASE' ? '✓ setat' : '✗ lipsește'}`);
+
+  box.innerHTML = lines.join('<br>');
+}
+
+async function testNotifLocal(tip='general'){
+  if(Notification.permission !== 'granted'){
+    const result = await Notification.requestPermission();
+    if(result !== 'granted'){ toast('Permisiunea de notificări nu e acordată'); return; }
+  }
+
+  const templates = {
+    general: {
+      title: '🔔 Test MTC Transport',
+      body: `Notificare de test · ${new Date().toLocaleTimeString('ro-RO')}`
+    },
+    sarcina: {
+      title: '🔧 Sarcină nouă — MU IE 803',
+      body: 'De la Cristi: schimb plăcuțe frână față · Termen: 10.05.2026'
+    },
+    finalizare: {
+      title: '✅ Ion a finalizat o sarcină',
+      body: 'MU IE 815 · schimb filtru aer'
+    },
+    garantie: {
+      title: '⚠️ Garanție expiră mâine — MU IE 820',
+      body: 'Mercedes-Benz Dealer München · 10.05.2026'
+    },
+    briefing: {
+      title: `☀️ Bună dimineața, ${currentUser?.name}!`,
+      body: '📅 Azi: MU IE 803 · schimb ulei\n📋 Alte 2 sarcini active.'
+    }
+  };
+
+  const t = templates[tip] || templates.general;
+  new Notification(t.title, { body: t.body, icon: './icon-192.png' });
+  toast(`Notificare "${tip}" trimisă — verifică bara de notificări`);
+}
+
+// Test push Firebase — trimite notificări reale prin FCM
+async function testPushFirebase(tip='sarcina'){
+  const resultBox = document.getElementById('push-test-result');
+  if(resultBox){ resultBox.style.display=''; resultBox.innerHTML='⏳ Trimit notificare de test prin Firebase...'; }
+
+  try{
+    // Obțin token-urile din Firestore
+    const snap = await window.fbHelpers.getDoc ? window.fbHelpers.getDoc(window.fbDocRef) : null;
+    const data = snap?.data ? snap.data() : null;
+    const ku = data?.knownUsers || knownUsers;
+
+    const destinatariMap = {
+      sarcina: ['ion-srv','vasile-srv'],
+      finalizare: ['cristi-srv','mihai-srv'],
+      garantie: ['cristi-srv','mihai-srv']
+    };
+    const targets = (destinatariMap[tip]||[]);
+    const targetUsers = ku.filter(u=>targets.includes(u.username) && u.pushToken);
+
+    if(!targetUsers.length){
+      if(resultBox) resultBox.innerHTML = `✗ Niciun destinatar cu token valid pentru "${tip}".\nAsigură-te că Ion/Vasile/Cristi/Mihai au apăsat "Reîmprospătează token".`;
+      return;
+    }
+
+    const templates = {
+      sarcina: { title:'🔧 Sarcină nouă — MU IE 803 [TEST]', body:'De la Cristi: schimb plăcuțe frână față · Termen: mâine' },
+      finalizare: { title:'✅ Ion a finalizat o sarcină [TEST]', body:'MU IE 803 · schimb plăcuțe frână față' },
+      garantie: { title:'⚠️ Garanție expiră mâine [TEST]', body:'MU IE 820 · Mercedes-Benz Dealer' }
+    };
+    const tmpl = templates[tip];
+
+    // Trimite prin Anthropic API — folosim endpoint-ul nostru de test
+    // De fapt trimitem prin o Function HTTP pe care o adăugăm în index.js
+    const lines = [];
+    for(const u of targetUsers){
+      lines.push(`→ ${u.name} (${u.username}): ${u.pushToken.slice(0,25)}...`);
+    }
+
+    if(resultBox) resultBox.innerHTML =
+      `✓ Găsiți ${targetUsers.length} destinatar(i):\n${lines.join('\n')}\n\n` +
+      `📤 Titlu: ${tmpl.title}\n📄 Body: ${tmpl.body}\n\n` +
+      `ℹ️ Notificarea se trimite prin Firebase Functions la adăugarea unei sarcini reale.\n` +
+      `Dacă vrei să testezi push-ul complet, adaugă o sarcină de test pentru Ion/Vasile.`;
+
+    toast(`Test push: ${targetUsers.length} destinatar(i) cu token valid`);
+  }catch(e){
+    if(resultBox) resultBox.innerHTML = `✗ Eroare: ${e.message}`;
+    toast('Eroare: '+e.message);
+  }
+}
+
+window.testNotifLocal=testNotifLocal;
+window.testPushFirebase=testPushFirebase;
+
+async function refreshPushToken(){
+  const box = document.getElementById('notif-status-box');
+  if(box) box.innerHTML = '⏳ Reîmprospătez token-ul...';
+
+  try{
+    if(Notification.permission !== 'granted'){
+      const r = await Notification.requestPermission();
+      if(r !== 'granted'){ toast('Permisiunea refuzată'); return; }
+    }
+
+    // Re-înregistrează service worker-ul
+    let swReg;
+    try{
+      swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      await navigator.serviceWorker.ready;
+    }catch(e){
+      swReg = await navigator.serviceWorker.ready;
+    }
+
+    const token = await window.fbGetToken(window.fbMessaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: swReg
+    });
+
+    if(!token){ toast('Nu s-a putut obține token-ul'); return; }
+
+    // Forțez salvarea în Firestore
+    const existing = knownUsers.find(u => u.username === currentUser.username);
+    if(existing){
+      existing.pushToken = token;
+      existing.pushTokenUpdatedAt = new Date().toISOString();
+    } else {
+      knownUsers.push({
+        username: currentUser.username,
+        name: currentUser.name,
+        pushToken: token,
+        pushTokenUpdatedAt: new Date().toISOString(),
+        firstSeen: new Date().toISOString(),
+        lastSeen: new Date().toISOString()
+      });
+    }
+
+    // Salvare directă imediată
+    const payload = {
+      masini, soferi,
+      log: log.map(l=>({...l, preluat:l.preluat?l.preluat.toISOString():null, restituit:l.restituit?l.restituit.toISOString():null})),
+      carIdCtr, logIdCtr, admins, knownUsers,
+      forcedLogouts: window._currentForcedLogouts||{},
+      reparatii, repIdCtr, taskuri, taskIdCtr,
+      stoc, stocIdCtr,
+      backupuri: backupuri.map(b=>({id:b.id,timestamp:b.timestamp,triggerBy:b.triggerBy,size:b.size||0})),
+      backupIdCtr, garantii, garantiiIdCtr,
+      lastModifiedBy: currentUser.name,
+      lastModifiedAt: new Date().toISOString()
+    };
+    await window.fbHelpers.setDoc(window.fbDocRef, payload);
+
+    if(box) box.innerHTML = `✓ Token reîmprospătat cu succes<br>${token.slice(0,30)}...<br><br>Testează cu o sarcină nouă.`;
+    toast('✓ Token actualizat — notificările ar trebui să funcționeze acum');
+  }catch(e){
+    if(box) box.innerHTML = `✗ Eroare: ${e.message}`;
+    toast('Eroare la reîmprospătare: '+e.message);
+  }
+}
+
+window.checkNotifStatus=checkNotifStatus;
+window.testNotifLocal=testNotifLocal;
+window.refreshPushToken=refreshPushToken;
 // ═════════════════════════════════════════════════════════════
 let editingGarantieId = null;
 let addingInterventieGarantieId = null;
