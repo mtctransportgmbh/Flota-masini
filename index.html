@@ -1553,11 +1553,13 @@ window.addEventListener('firebase-ready', ()=>{
         document.getElementById('srv-user-avatar').style.color=avc(currentUser.name);
         document.getElementById('mode-select').style.display='none';
         // Notificări push și briefing de dimineață
-        setTimeout(()=>{
-          requestNotificationPermission();
-          initNotifications();
+        setTimeout(async ()=>{
+          await requestNotificationPermission();
+          await initNotifications();
           checkMorningBriefing();
           checkGarantiiExpirare();
+          // Afișează banner dacă notificările nu sunt active
+          showNotifBannerIfNeeded();
         }, 2000);
       } else {
         // Pornesc aplicația Flotă — ascund complet Service
@@ -2704,49 +2706,52 @@ const VAPID_KEY = 'BPgUUaz9-9RN43J8xtT4vMnYAmklfb4YUx96grA2mh6ASYk_84AbkwConXMRq
 
 // Solicită permisiunea și înregistrează token-ul push
 async function initNotifications(){
-  if(!('Notification' in window) || !('serviceWorker' in navigator)) return;
-  if(!window.fbMessaging) return;
-  if(VAPID_KEY === 'INLOCUIESTE_CU_VAPID_KEY_DIN_FIREBASE') return;
+  console.log('[NOTIF] initNotifications start');
+  if(!('Notification' in window)){ console.log('[NOTIF] Notification API lipsește'); return; }
+  if(!('serviceWorker' in navigator)){ console.log('[NOTIF] ServiceWorker lipsește'); return; }
+  if(!window.fbMessaging){ console.log('[NOTIF] fbMessaging neinițializat'); return; }
+  if(VAPID_KEY === 'INLOCUIESTE_CU_VAPID_KEY_DIN_FIREBASE'){ console.log('[NOTIF] VAPID Key lipsește'); return; }
+  if(Notification.permission !== 'granted'){
+    console.log('[NOTIF] Permisiune:', Notification.permission, '— skip');
+    return;
+  }
 
   try {
-    const permission = await Notification.requestPermission();
-    if(permission !== 'granted'){
-      console.log('Notificări refuzate de user');
-      return;
-    }
-
-    // Asigură că service worker-ul pentru messaging e înregistrat
+    console.log('[NOTIF] Înregistrez SW...');
     let swReg;
     try {
-      swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
       await navigator.serviceWorker.ready;
-    } catch(e) {
+      console.log('[NOTIF] SW înregistrat:', swReg.scope);
+    } catch(swErr) {
+      console.log('[NOTIF] SW register fail, folosesc ready:', swErr.message);
       swReg = await navigator.serviceWorker.ready;
     }
 
+    console.log('[NOTIF] Cer token FCM...');
     const token = await window.fbGetToken(window.fbMessaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swReg
     });
 
-    console.log('FCM Token obținut:', token ? token.slice(0,30)+'...' : 'null');
+    console.log('[NOTIF] Token obținut:', token ? token.slice(0,30)+'...' : 'NULL');
 
     if(token && currentUser){
       const existing = knownUsers.find(u => u.username === currentUser.username);
       if(existing){
-        // Salvez în array de token-uri (suportă multiple dispozitive)
-        if(!existing.pushTokens) existing.pushTokens = [];
-        // Adaug token-ul dacă nu există deja
-        if(!existing.pushTokens.includes(token)){
+        if(!existing.pushTokens) existing.pushTokens = existing.pushToken ? [existing.pushToken] : [];
+        const alreadyHas = existing.pushTokens.includes(token);
+        if(!alreadyHas){
           existing.pushTokens.push(token);
-          // Păstrează max 5 token-uri per user (cele mai recente)
           if(existing.pushTokens.length > 5) existing.pushTokens = existing.pushTokens.slice(-5);
-          console.log(`Token nou adăugat pentru ${currentUser.username} (total: ${existing.pushTokens.length})`);
+          console.log(`[NOTIF] Token NOU adăugat pentru ${currentUser.username} (total: ${existing.pushTokens.length})`);
+        } else {
+          console.log(`[NOTIF] Token deja existent pentru ${currentUser.username}`);
         }
-        // Păstrez și pushToken pentru compatibilitate înapoi
         existing.pushToken = token;
         existing.pushTokenUpdatedAt = new Date().toISOString();
-        // Salvare imediată
+
+        // Salvare imediată în Firestore
         try{
           const payload = {
             masini, soferi,
@@ -2761,25 +2766,25 @@ async function initNotifications(){
             lastModifiedAt: new Date().toISOString()
           };
           await window.fbHelpers.setDoc(window.fbDocRef, payload);
-          console.log(`✓ Token(uri) salvate în Firestore pentru ${currentUser.username}`);
+          console.log(`[NOTIF] ✓ Token salvat în Firestore pentru ${currentUser.username}`);
         } catch(saveErr){
-          console.error('Eroare salvare token:', saveErr);
+          console.error('[NOTIF] ✗ Eroare salvare token în Firestore:', saveErr.message);
         }
       } else {
+        console.log(`[NOTIF] User ${currentUser.username} nu e în knownUsers, adăugând...`);
         knownUsers.push({
-          username: currentUser.username,
-          name: currentUser.name,
-          pushToken: token,
-          pushTokens: [token],
+          username: currentUser.username, name: currentUser.name,
+          pushToken: token, pushTokens: [token],
           pushTokenUpdatedAt: new Date().toISOString(),
-          firstSeen: new Date().toISOString(),
-          lastSeen: new Date().toISOString()
+          firstSeen: new Date().toISOString(), lastSeen: new Date().toISOString()
         });
         saveToCloud();
       }
+    } else {
+      console.log('[NOTIF] Token null sau currentUser null');
     }
   } catch(e) {
-    console.log('Notificări push nu sunt disponibile:', e.message);
+    console.error('[NOTIF] ✗ Eroare generală:', e.message, e.code);
   }
 
   // Ascultă notificări când aplicația e deschisă
@@ -2953,7 +2958,49 @@ function checkForCompletedTasks(){
   });
 }
 
-// Solicită permisiunea de notificări la prima logare în Service
+// Banner vizibil pentru toți când notificările nu sunt active
+async function showNotifBannerIfNeeded(){
+  // Nu arăta dacă permisiunea e deja acordată și token-ul există
+  const existing = knownUsers.find(u=>u.username===currentUser?.username);
+  const hasTokens = existing?.pushTokens?.length > 0 || existing?.pushToken;
+
+  if(Notification.permission === 'granted' && hasTokens) return;
+
+  // Arată banner
+  const existing2 = document.getElementById('notif-banner-srv');
+  if(existing2) return; // deja afișat
+
+  const banner = document.createElement('div');
+  banner.id = 'notif-banner-srv';
+  banner.style.cssText = 'position:fixed;bottom:80px;left:16px;right:16px;z-index:200;background:#1a2a0a;border:1px solid var(--accent);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.4)';
+  banner.innerHTML = `
+    <div style="font-size:20px">🔔</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:500;color:var(--accent)">Activează notificările</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">Ca să primești sarcini noi chiar și când aplicația e închisă</div>
+    </div>
+    <button onclick="activateNotifFromBanner()" style="background:var(--accent);border:none;color:#0f0f0f;cursor:pointer;font-size:13px;font-weight:500;padding:8px 14px;border-radius:6px;font-family:inherit;white-space:nowrap">Activează</button>
+    <button onclick="document.getElementById('notif-banner-srv').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;line-height:1">✕</button>
+  `;
+  document.body.appendChild(banner);
+  // Auto-ascunde după 30 secunde
+  setTimeout(()=>{ if(document.getElementById('notif-banner-srv')) document.getElementById('notif-banner-srv').remove(); }, 30000);
+}
+
+async function activateNotifFromBanner(){
+  const banner = document.getElementById('notif-banner-srv');
+  if(banner) banner.remove();
+  await requestNotificationPermission();
+  await initNotifications();
+  const existing = knownUsers.find(u=>u.username===currentUser?.username);
+  const tokens = existing?.pushTokens?.length || 0;
+  if(tokens > 0){
+    showInAppNotification('✓ Notificări activate', 'Vei primi notificări pe acest dispozitiv.');
+  } else {
+    showInAppNotification('⚠ Problemă cu notificările', 'Nu s-a putut salva token-ul. Încearcă din nou.');
+  }
+}
+window.activateNotifFromBanner=activateNotifFromBanner;
 async function requestNotificationPermission(){
   if(!('Notification' in window)) return;
   if(Notification.permission === 'default'){
@@ -3460,7 +3507,7 @@ async function refreshPushToken(){
     // Re-înregistrează service worker-ul
     let swReg;
     try{
-      swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
       await navigator.serviceWorker.ready;
     }catch(e){
       swReg = await navigator.serviceWorker.ready;

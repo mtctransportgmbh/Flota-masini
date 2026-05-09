@@ -1,4 +1,4 @@
-// Firebase Messaging Service Worker — SDK v9 modular
+// Firebase Messaging Service Worker
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
@@ -14,13 +14,13 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log('Background message primit:', payload);
-  const { title, body, icon } = payload.notification || {};
-  self.registration.showNotification(title || 'Flotă MTC', {
+  console.log('[SW] Background message:', payload);
+  const { title, body } = payload.notification || {};
+  self.registration.showNotification(title || 'MTC Transport', {
     body: body || '',
-    icon: icon || '/icon-192.png',
-    badge: '/icon-192.png',
-    tag: 'mtc-' + Date.now(),
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: 'mtc-' + (payload.data?.type || Date.now()),
     data: payload.data,
     requireInteraction: true,
     vibrate: [200, 100, 200]
@@ -40,3 +40,6 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+// Confirmă că SW-ul e activ
+console.log('[SW] firebase-messaging-sw.js încărcat și activ');
