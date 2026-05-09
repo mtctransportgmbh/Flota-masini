@@ -429,6 +429,7 @@ body.user-mode .log-mobile-card {
           <option value="">— fără locație —</option>
           <option value="Eiselfing">Eiselfing</option>
           <option value="Ruhstorf">Ruhstorf</option>
+          <option value="Paketshop">Paketshop</option>
         </select>
         <button class="btn btn-primary" onclick="addSofer()" style="flex:none;width:auto">Adaugă</button>
       </div>
@@ -1041,13 +1042,18 @@ body.user-mode .log-mobile-card {
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="modal-field">
-        <div class="modal-label">Data</div>
+        <div class="modal-label">Data programată</div>
         <input id="garantie-int-data" type="date">
       </div>
       <div class="modal-field">
-        <div class="modal-label">Km</div>
-        <input id="garantie-int-km" type="number" placeholder="0">
+        <div class="modal-label">Ora programată</div>
+        <input id="garantie-int-ora" type="time" value="08:00">
       </div>
+    </div>
+
+    <div class="modal-field">
+      <div class="modal-label">Km (opțional)</div>
+      <input id="garantie-int-km" type="number" placeholder="0">
     </div>
 
     <div class="modal-field">
@@ -1311,11 +1317,12 @@ function buildOpts(sel, filter=''){
   const soferiList = soferi.map(s => typeof s === 'string' ? {name:s, location:''} : s);
   const eisel = soferiList.filter(s=>s.location==='Eiselfing').sort((a,b)=>a.name.localeCompare(b.name));
   const ruhst = soferiList.filter(s=>s.location==='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
-  const other = soferiList.filter(s=>s.location!=='Eiselfing' && s.location!=='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
+  const paket = soferiList.filter(s=>s.location==='Paketshop').sort((a,b)=>a.name.localeCompare(b.name));
+  const other = soferiList.filter(s=>!s.location || (s.location!=='Eiselfing' && s.location!=='Ruhstorf' && s.location!=='Paketshop')).sort((a,b)=>a.name.localeCompare(b.name));
 
   // Dacă există căutare — afișez doar rezultate fără grupare
   if(q){
-    const all = [...eisel, ...ruhst, ...other].filter(s=>s.name.toLowerCase().includes(q));
+    const all = [...eisel, ...ruhst, ...paket, ...other].filter(s=>s.name.toLowerCase().includes(q));
     return all.map(s=>`<option value="${s.name}"${s.name===sel?' selected':''}>${s.name} (${s.location||'—'})</option>`).join('') ||
       '<option disabled>Niciun rezultat</option>';
   }
@@ -1335,6 +1342,10 @@ function buildOpts(sel, filter=''){
   if(ruhst.length){
     html += `<option disabled>── RUHSTORF ──</option>`;
     html += ruhst.map(s=>`<option value="${s.name}"${s.name===sel?' selected':''}>${s.name}</option>`).join('');
+  }
+  if(paket.length){
+    html += `<option disabled>── PAKETSHOP ──</option>`;
+    html += paket.map(s=>`<option value="${s.name}"${s.name===sel?' selected':''}>${s.name}</option>`).join('');
   }
   if(other.length){
     html += `<option disabled>── ALȚII ──</option>`;
@@ -2356,11 +2367,12 @@ function renderSoferi(){
   const soferiList = soferi.map(s => typeof s === 'string' ? {name:s, location:''} : s);
   const eisel = soferiList.filter(s=>s.location==='Eiselfing').sort((a,b)=>a.name.localeCompare(b.name));
   const ruhst = soferiList.filter(s=>s.location==='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
-  const other = soferiList.filter(s=>s.location!=='Eiselfing' && s.location!=='Ruhstorf').sort((a,b)=>a.name.localeCompare(b.name));
+  const paket = soferiList.filter(s=>s.location==='Paketshop').sort((a,b)=>a.name.localeCompare(b.name));
+  const other = soferiList.filter(s=>!s.location || (s.location!=='Eiselfing' && s.location!=='Ruhstorf' && s.location!=='Paketshop')).sort((a,b)=>a.name.localeCompare(b.name));
 
   function buildCard(s){
     const m=am[s.name];const c=avc(s.name);
-    const locColor = s.location==='Eiselfing' ? '#a78bfa' : s.location==='Ruhstorf' ? '#4affa0' : 'var(--text3)';
+    const locColor = s.location==='Eiselfing' ? '#a78bfa' : s.location==='Ruhstorf' ? '#4affa0' : s.location==='Paketshop' ? '#b04aff' : 'var(--text3)';
     const locBadge = s.location ? `<span style="font-family:var(--mono);font-size:9px;font-weight:500;padding:2px 6px;border-radius:3px;background:${locColor}22;color:${locColor};margin-top:4px;display:inline-block">${s.location.toUpperCase()}</span>` : '';
     return `<div class="sofer-card"><div class="sofer-avatar" style="background:${c}33;color:${c}">${initials(s.name)}</div><div><div style="font-size:14px;font-weight:500">${s.name}</div>${locBadge}${m?`<div style="font-family:var(--mono);font-size:12px;color:var(--text2);margin-top:3px">${m.nr}</div><div style="font-size:11px;margin-top:3px;color:${m.tip==='T6'?'var(--t6)':m.tip==='CRAFTER'?'var(--crafter)':'var(--elektro)'}">${m.tip}</div>`:`<div style="font-size:12px;color:var(--text3);margin-top:3px">— nealocat —</div>`}</div></div>`;
   }
@@ -2373,6 +2385,10 @@ function renderSoferi(){
   if(ruhst.length){
     html += `<div style="grid-column:1/-1;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#4affa0;font-weight:500;margin-top:14px;margin-bottom:4px">Ruhstorf (${ruhst.length})</div>`;
     html += ruhst.map(buildCard).join('');
+  }
+  if(paket.length){
+    html += `<div style="grid-column:1/-1;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#b04aff;font-weight:500;margin-top:14px;margin-bottom:4px">Paketshop (${paket.length})</div>`;
+    html += paket.map(buildCard).join('');
   }
   if(other.length){
     html += `<div style="grid-column:1/-1;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:500;margin-top:14px;margin-bottom:4px">Alți șoferi (${other.length})</div>`;
@@ -2396,7 +2412,7 @@ function renderSetari(){
   list.innerHTML=
     `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">`+
     soferiList.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>{
-      const locColor = s.location==='Eiselfing' ? '#a78bfa' : s.location==='Ruhstorf' ? '#4affa0' : 'var(--text3)';
+      const locColor = s.location==='Eiselfing' ? '#a78bfa' : s.location==='Ruhstorf' ? '#4affa0' : s.location==='Paketshop' ? '#b04aff' : 'var(--text3)';
       return `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:13px;gap:8px">
         <div style="flex:1;min-width:0">
           <div>${s.name}</div>
@@ -2404,6 +2420,7 @@ function renderSetari(){
             <option value="" ${!s.location?'selected':''}>— fără locație —</option>
             <option value="Eiselfing" ${s.location==='Eiselfing'?'selected':''}>Eiselfing</option>
             <option value="Ruhstorf" ${s.location==='Ruhstorf'?'selected':''}>Ruhstorf</option>
+            <option value="Paketshop" ${s.location==='Paketshop'?'selected':''}>Paketshop</option>
           </select>
         </div>
         <button onclick="removeSofer(${JSON.stringify(s.name)})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;flex-shrink:0">×</button>
@@ -2715,37 +2732,45 @@ async function initNotifications(){
     console.log('FCM Token obținut:', token ? token.slice(0,30)+'...' : 'null');
 
     if(token && currentUser){
-      // Salvare robustă — direct în Firestore, nu prin saveToCloud
       const existing = knownUsers.find(u => u.username === currentUser.username);
       if(existing){
-        const oldToken = existing.pushToken;
+        // Salvez în array de token-uri (suportă multiple dispozitive)
+        if(!existing.pushTokens) existing.pushTokens = [];
+        // Adaug token-ul dacă nu există deja
+        if(!existing.pushTokens.includes(token)){
+          existing.pushTokens.push(token);
+          // Păstrează max 5 token-uri per user (cele mai recente)
+          if(existing.pushTokens.length > 5) existing.pushTokens = existing.pushTokens.slice(-5);
+          console.log(`Token nou adăugat pentru ${currentUser.username} (total: ${existing.pushTokens.length})`);
+        }
+        // Păstrez și pushToken pentru compatibilitate înapoi
         existing.pushToken = token;
         existing.pushTokenUpdatedAt = new Date().toISOString();
-        if(oldToken !== token){
-          console.log('Token nou salvat în Firestore');
-          // Salvare imediată fără debounce
-          try{
-            const payload = {
-              masini, soferi,
-              log: log.map(l=>({...l, preluat:l.preluat?l.preluat.toISOString():null, restituit:l.restituit?l.restituit.toISOString():null})),
-              carIdCtr, logIdCtr, admins, knownUsers,
-              forcedLogouts: window._currentForcedLogouts||{},
-              reparatii, repIdCtr, taskuri, taskIdCtr,
-              lastModifiedBy: currentUser.name,
-              lastModifiedAt: new Date().toISOString()
-            };
-            await window.fbHelpers.setDoc(window.fbDocRef, payload);
-            console.log('✓ Token salvat cu succes în Firestore');
-          } catch(saveErr){
-            console.error('Eroare salvare token:', saveErr);
-          }
+        // Salvare imediată
+        try{
+          const payload = {
+            masini, soferi,
+            log: log.map(l=>({...l, preluat:l.preluat?l.preluat.toISOString():null, restituit:l.restituit?l.restituit.toISOString():null})),
+            carIdCtr, logIdCtr, admins, knownUsers,
+            forcedLogouts: window._currentForcedLogouts||{},
+            reparatii, repIdCtr, taskuri, taskIdCtr,
+            stoc, stocIdCtr,
+            backupuri: backupuri.map(b=>({id:b.id,timestamp:b.timestamp,triggerBy:b.triggerBy,size:b.size||0})),
+            backupIdCtr, garantii, garantiiIdCtr,
+            lastModifiedBy: currentUser.name,
+            lastModifiedAt: new Date().toISOString()
+          };
+          await window.fbHelpers.setDoc(window.fbDocRef, payload);
+          console.log(`✓ Token(uri) salvate în Firestore pentru ${currentUser.username}`);
+        } catch(saveErr){
+          console.error('Eroare salvare token:', saveErr);
         }
       } else {
-        // User nu e în knownUsers — adaugă-l
         knownUsers.push({
           username: currentUser.username,
           name: currentUser.name,
           pushToken: token,
+          pushTokens: [token],
           pushTokenUpdatedAt: new Date().toISOString(),
           firstSeen: new Date().toISOString(),
           lastSeen: new Date().toISOString()
@@ -3318,12 +3343,12 @@ async function checkNotifStatus(){
     lines.push(`SW înregistrat: ✗ ${e.message}`);
   }
 
-  // Token curent din Firestore
-  const userInDb = (window._knownUsersSnapshot||[]).find(u=>u.username===currentUser?.username);
-  const token = userInDb?.pushToken;
-  if(token){
-    lines.push(`Token FCM: ✓ ${token.slice(0,25)}...`);
-    lines.push(`Token actualizat: ${userInDb.pushTokenUpdatedAt ? new Date(userInDb.pushTokenUpdatedAt).toLocaleString('ro-RO') : '—'}`);
+  const userInDb = knownUsers.find(u=>u.username===currentUser?.username);
+  const tokens = userInDb?.pushTokens || (userInDb?.pushToken ? [userInDb.pushToken] : []);
+  if(tokens.length){
+    lines.push(`Token-uri FCM: ✓ ${tokens.length} dispozitiv(e)`);
+    tokens.forEach((t,i)=>lines.push(`  [${i+1}] ${t.slice(0,30)}...`));
+    lines.push(`Actualizat: ${userInDb.pushTokenUpdatedAt ? new Date(userInDb.pushTokenUpdatedAt).toLocaleString('ro-RO') : '—'}`);
   } else {
     lines.push(`Token FCM: ✗ lipsește — apasă "Reîmprospătează token"`);
   }
@@ -3448,19 +3473,21 @@ async function refreshPushToken(){
 
     if(!token){ toast('Nu s-a putut obține token-ul'); return; }
 
-    // Forțez salvarea în Firestore
     const existing = knownUsers.find(u => u.username === currentUser.username);
     if(existing){
+      if(!existing.pushTokens) existing.pushTokens = existing.pushToken ? [existing.pushToken] : [];
+      if(!existing.pushTokens.includes(token)){
+        existing.pushTokens.push(token);
+        if(existing.pushTokens.length > 5) existing.pushTokens = existing.pushTokens.slice(-5);
+      }
       existing.pushToken = token;
       existing.pushTokenUpdatedAt = new Date().toISOString();
     } else {
       knownUsers.push({
-        username: currentUser.username,
-        name: currentUser.name,
-        pushToken: token,
+        username: currentUser.username, name: currentUser.name,
+        pushToken: token, pushTokens: [token],
         pushTokenUpdatedAt: new Date().toISOString(),
-        firstSeen: new Date().toISOString(),
-        lastSeen: new Date().toISOString()
+        firstSeen: new Date().toISOString(), lastSeen: new Date().toISOString()
       });
     }
 
@@ -3545,12 +3572,25 @@ function renderGarantie(){
 
     const intRows = interventii.length ? interventii.slice().sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(iv=>{
       const ivDt = iv.data ? iv.data.split('-').reverse().join('.') : '—';
+      const ivOra = iv.ora || '';
       const tipIcon = iv.tip==='Schimb ulei'?'🛢':iv.tip==='Inspecție ITP'?'📋':'🔧';
+
+      // Verifică dacă e în viitor sau trecut
+      const now = new Date();
+      const ivDate = iv.data ? new Date(iv.data+'T'+(iv.ora||'00:00')) : null;
+      const isFuture = ivDate && ivDate > now;
+      const isToday = ivDate && ivDate.toDateString()===now.toDateString();
+      const isTomorrow = ivDate && new Date(ivDate.getTime()-86400000).toDateString()===now.toDateString();
+
+      let badge = '';
+      if(isFuture && isToday) badge = '<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(255,159,74,.15);color:var(--t6);margin-left:6px">AZI</span>';
+      else if(isTomorrow) badge = '<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(200,245,66,.1);color:var(--accent);margin-left:6px">MÂINE</span>';
+
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
-        <div style="color:var(--text)">${tipIcon} ${iv.tip}</div>
-        <div style="font-family:var(--mono);color:var(--text3)">${ivDt}${iv.km?' · '+Number(iv.km).toLocaleString()+' km':''}</div>
+        <div style="color:var(--text)">${tipIcon} ${iv.tip}${badge}</div>
+        <div style="font-family:var(--mono);color:var(--text3)">${ivDt}${ivOra?' '+ivOra:''}${iv.km?' · '+Number(iv.km).toLocaleString()+' km':''}</div>
       </div>`;
-    }).join('') : `<div style="font-size:12px;color:var(--text3);padding:6px 0;font-style:italic">Nicio intervenție înregistrată</div>`;
+    }).join('') : `<div style="font-size:12px;color:var(--text3);padding:6px 0;font-style:italic">Nicio programare adăugată</div>`;
 
     return `<div style="background:var(--surface);border:1px solid ${borderColor};border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;position:relative;overflow:hidden">
       <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${tipColor}"></div>
@@ -3713,6 +3753,7 @@ function garantieSaveInterventie(){
   if(!g.interventii) g.interventii=[];
   g.interventii.push({
     tip, data,
+    ora: document.getElementById('garantie-int-ora').value || '08:00',
     km:document.getElementById('garantie-int-km').value?Number(document.getElementById('garantie-int-km').value):null,
     obs:document.getElementById('garantie-int-obs').value.trim(),
     addedBy:currentUser?.name||'unknown',
@@ -3724,22 +3765,31 @@ function garantieSaveInterventie(){
   toast('Intervenție adăugată');
 }
 
-// Verificare garanții ce expiră mâine — la deschiderea aplicației
+// Verificare programări garanție mâine — la deschiderea aplicației
 function checkGarantiiExpirare(){
   if(!isSrvSef() && !isAdminUser) return;
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate()+1);
-  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
 
-  garantii.filter(g=>g.activa!==false && g.dataExpirare===tomorrowStr).forEach(g=>{
-    showInAppNotification(
-      `⚠️ Garanție expiră mâine — ${g.masinaNr}`,
-      `${g.serviceNume||'service autorizat'} · ${g.dataExpirare.split('-').reverse().join('.')}`
-    );
-    sendLocalNotification(
-      `⚠️ Garanție expiră mâine — ${g.masinaNr}`,
-      `${g.serviceNume||'service autorizat'}`
-    );
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate()+1);
+  const tomorrowStr = tomorrow.toISOString().slice(0,10);
+  const todayStr = now.toISOString().slice(0,10);
+
+  garantii.filter(g=>g.activa!==false).forEach(g=>{
+    (g.interventii||[]).forEach(iv=>{
+      if(!iv.data) return;
+      const isProgramatMaine = iv.data === tomorrowStr;
+      const isProgramatAzi = iv.data === todayStr;
+      if(!isProgramatMaine && !isProgramatAzi) return;
+
+      const tipIcon = iv.tip==='Schimb ulei'?'🛢':iv.tip==='Inspecție ITP'?'📋':'🔧';
+      const whenStr = isProgramatAzi ? 'AZI' : 'mâine';
+      const title = `${tipIcon} ${iv.tip} — ${g.masinaNr}`;
+      const body = `${whenStr}${iv.ora?' la '+iv.ora:''} · ${g.serviceNume||'service autorizat'}`;
+
+      showInAppNotification(title, body);
+      sendLocalNotification(title, body);
+    });
   });
 }
 
