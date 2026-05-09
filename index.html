@@ -3446,8 +3446,29 @@ async function doActivateNotif(){
 
 async function doTestNotif(){
   if(Notification.permission!=='granted'){ toast('Activează notificările mai întâi'); return; }
-  new Notification('✓ Test MTC Transport', { body:`Test · ${new Date().toLocaleTimeString('ro-RO')} · ${currentUser?.name}`, icon:'./icon-192.png' });
-  toast('Notificare trimisă!');
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    // Trimite prin SW (merge pe Android PWA)
+    await sw.showNotification('✓ Test MTC Transport', {
+      body: `Test · ${new Date().toLocaleTimeString('ro-RO')} · ${currentUser?.name}`,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      vibrate: [200, 100, 200],
+      tag: 'test-' + Date.now()
+    });
+    toast('Notificare trimisă — verifică bara de sus!');
+  } catch(e) {
+    // Fallback pentru desktop
+    try {
+      new Notification('✓ Test MTC Transport', {
+        body: `Test · ${new Date().toLocaleTimeString('ro-RO')} · ${currentUser?.name}`,
+        icon: './icon-192.png'
+      });
+      toast('Notificare trimisă!');
+    } catch(e2) {
+      toast('Eroare: ' + e2.message);
+    }
+  }
 }
 
 window.showNotifDiag=showNotifDiag;
