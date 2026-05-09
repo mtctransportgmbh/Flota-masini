@@ -633,6 +633,7 @@ body.user-mode .log-mobile-card {
       <div class="user-avatar" id="srv-user-avatar">?</div>
       <span id="srv-user-name">—</span>
     </div>
+    <button onclick="showNotifDiag()" title="Notificări" style="background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-size:13px;padding:7px 10px;border-radius:var(--radius);font-family:inherit" id="notif-diag-btn">🔔</button>
     <button onclick="doLogout()" title="Ieși din cont" style="background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;font-size:13px;padding:7px 12px;border-radius:var(--radius);font-family:inherit">↪</button>
   </div>
 </div>
@@ -1085,6 +1086,21 @@ body.user-mode .log-mobile-card {
 </div>
 
 <!-- Modal editare cost reparație (pentru șefi la carduri) -->
+
+<!-- Modal diagnosticare notificări (vizibil pentru toți) -->
+<div class="modal-overlay" id="modal-notif-diag">
+  <div class="modal">
+    <div class="modal-title">🔔 Notificări push</div>
+    <div id="notif-diag-content" style="font-size:12px;font-family:var(--mono);color:var(--text2);line-height:1.9;background:var(--surface2);border-radius:6px;padding:12px 14px;margin-bottom:16px">
+      Se verifică...
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="doActivateNotif()" style="flex:none;width:auto">🔔 Activează / Reîmprospătează</button>
+      <button class="btn" onclick="doTestNotif()" style="flex:none;width:auto">📱 Test</button>
+      <button class="btn" onclick="document.getElementById('modal-notif-diag').classList.remove('open')" style="flex:none;width:auto">Închide</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="srv-modal-edit">
   <div class="modal">
@@ -3373,6 +3389,70 @@ function srvmClose(){document.getElementById('srv-modal-istoric-masina').classLi
 // ═════════════════════════════════════════════════════════════
 // ── DIAGNOSTICARE NOTIFICĂRI ─────────────────────────────────
 // ═════════════════════════════════════════════════════════════
+
+// ── DIAGNOSTICARE NOTIFICĂRI (accesibil tuturor) ──────────────
+async function showNotifDiag(){
+  document.getElementById('modal-notif-diag').classList.add('open');
+  const box = document.getElementById('notif-diag-content');
+  const lines = [];
+  lines.push(`User: ${currentUser?.username || '?'}`);
+  lines.push(`Permisiune: ${Notification.permission==='granted'?'✓ Acordată':Notification.permission==='denied'?'✗ BLOCATĂ':'⚠ Nesetată (apasă Activează)'}`);
+  lines.push(`ServiceWorker: ${'serviceWorker' in navigator ? '✓ suportat' : '✗ nu merge'}`);
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    lines.push(`SW activ: ✓ ${sw.scope}`);
+  } catch(e) { lines.push(`SW: ✗ ${e.message}`); }
+  const u = knownUsers.find(x=>x.username===currentUser?.username);
+  const tokens = u?.pushTokens || (u?.pushToken ? [u.pushToken] : []);
+  lines.push(`Token-uri: ${tokens.length>0 ? '✓ '+tokens.length+' dispozitiv(e)' : '✗ LIPSESC — apasă Activează'}`);
+  if(tokens.length) tokens.forEach((t,i)=>lines.push(`  [${i+1}] ${t.slice(0,22)}...`));
+  if(u?.pushTokenUpdatedAt) lines.push(`Actualizat: ${new Date(u.pushTokenUpdatedAt).toLocaleString('ro-RO')}`);
+  if(Notification.permission==='denied') lines.push(`\n⚠ Blocat din setările browserului!\nSetări → Notificări → github.io → Permite`);
+  box.innerHTML = lines.join('<br>');
+}
+
+async function doActivateNotif(){
+  const box = document.getElementById('notif-diag-content');
+  box.innerHTML = '⏳ Se activează...';
+  try {
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){
+      box.innerHTML = `✗ Permisiune ${perm}<br>Mergi la Setări → Notificări → găsește aplicația → Permite`;
+      return;
+    }
+    let swReg;
+    try { swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js'); await navigator.serviceWorker.ready; }
+    catch(e) { swReg = await navigator.serviceWorker.ready; }
+    box.innerHTML = `✓ SW: ${swReg.scope}<br>⏳ Obțin token FCM...`;
+    const token = await window.fbGetToken(window.fbMessaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+    if(!token){ box.innerHTML='✗ Token null — încearcă din Safari sau reinstalează PWA'; return; }
+    const existing = knownUsers.find(u=>u.username===currentUser.username);
+    if(existing){
+      if(!existing.pushTokens) existing.pushTokens=[];
+      if(!existing.pushTokens.includes(token)) existing.pushTokens.push(token);
+      if(existing.pushTokens.length>5) existing.pushTokens=existing.pushTokens.slice(-5);
+      existing.pushToken=token; existing.pushTokenUpdatedAt=new Date().toISOString();
+    } else {
+      knownUsers.push({username:currentUser.username,name:currentUser.name,pushToken:token,pushTokens:[token],pushTokenUpdatedAt:new Date().toISOString(),firstSeen:new Date().toISOString(),lastSeen:new Date().toISOString()});
+    }
+    const payload={masini,soferi,log:log.map(l=>({...l,preluat:l.preluat?l.preluat.toISOString():null,restituit:l.restituit?l.restituit.toISOString():null})),carIdCtr,logIdCtr,admins,knownUsers,forcedLogouts:window._currentForcedLogouts||{},reparatii,repIdCtr,taskuri,taskIdCtr,stoc,stocIdCtr,backupuri:backupuri.map(b=>({id:b.id,timestamp:b.timestamp,triggerBy:b.triggerBy,size:b.size||0})),backupIdCtr,garantii,garantiiIdCtr,lastModifiedBy:currentUser.name,lastModifiedAt:new Date().toISOString()};
+    await window.fbHelpers.setDoc(window.fbDocRef, payload);
+    const u = knownUsers.find(x=>x.username===currentUser.username);
+    box.innerHTML = `✓ ACTIVAT!<br>Token: ${token.slice(0,25)}...<br>Dispozitive: ${u?.pushTokens?.length||1}<br><br>Apasă 📱 Test pentru a verifica.`;
+  } catch(e) {
+    box.innerHTML = `✗ Eroare: ${e.message}<br><br>Încearcă reinstalează PWA din browser.`;
+  }
+}
+
+async function doTestNotif(){
+  if(Notification.permission!=='granted'){ toast('Activează notificările mai întâi'); return; }
+  new Notification('✓ Test MTC Transport', { body:`Test · ${new Date().toLocaleTimeString('ro-RO')} · ${currentUser?.name}`, icon:'./icon-192.png' });
+  toast('Notificare trimisă!');
+}
+
+window.showNotifDiag=showNotifDiag;
+window.doActivateNotif=doActivateNotif;
+window.doTestNotif=doTestNotif;
 
 async function checkNotifStatus(){
   const box = document.getElementById('notif-status-box');
